@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>Detalle de Tarea - Hola, Sarita</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-lowest": "#ffffff",
+                        "on-surface": "#0b1c30",
+                        "on-primary-fixed-variant": "#2f2ebe",
+                        "primary-container": "#6063ee",
+                        "on-tertiary-container": "#000703",
+                        "tertiary-fixed-dim": "#4edea3",
+                        "surface-variant": "#d3e4fe",
+                        "surface-container-high": "#dce9ff",
+                        "outline": "#767586",
+                        "secondary-fixed-dim": "#ffb95f",
+                        "background": "#f8f9ff",
+                        "error-container": "#ffdad6",
+                        "on-primary-fixed": "#07006c",
+                        "surface-container-low": "#eff4ff",
+                        "surface-container": "#e5eeff",
+                        "on-primary-container": "#fffbff",
+                        "tertiary": "#006c49",
+                        "inverse-on-surface": "#eaf1ff",
+                        "on-tertiary-fixed": "#002113",
+                        "tertiary-container": "#00885d",
+                        "primary-fixed": "#e1e0ff",
+                        "on-surface-variant": "#464554",
+                        "secondary": "#855300",
+                        "surface-container-highest": "#d3e4fe",
+                        "on-secondary": "#ffffff",
+                        "primary-fixed-dim": "#c0c1ff",
+                        "on-error": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "surface-dim": "#cbdbf5",
+                        "error": "#ba1a1a",
+                        "primary": "#4648d4",
+                        "on-error-container": "#93000a",
+                        "surface-tint": "#494bd6",
+                        "inverse-surface": "#213145",
+                        "on-background": "#0b1c30",
+                        "surface-bright": "#f8f9ff",
+                        "secondary-fixed": "#ffddb8",
+                        "on-secondary-fixed-variant": "#653e00",
+                        "on-secondary-container": "#684000",
+                        "on-secondary-fixed": "#2a1700",
+                        "on-tertiary-fixed-variant": "#005236",
+                        "tertiary-fixed": "#6ffbbe",
+                        "outline-variant": "#c7c4d7",
+                        "on-tertiary": "#ffffff",
+                        "surface": "#f8f9ff",
+                        "secondary-container": "#fea619",
+                        "inverse-primary": "#c0c1ff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "stack-md": "1rem",
+                        "container-margin": "1.25rem",
+                        "stack-lg": "1.5rem",
+                        "section-gap": "2rem",
+                        "stack-sm": "0.5rem",
+                        "gutter": "1rem"
+                    },
+                    "fontFamily": {
+                        "title-md": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "display": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-lg-mobile": ["Inter"],
+                        "body-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "title-md": ["18px", { "lineHeight": "24px", "fontWeight": "600" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "500" }],
+                        "display": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-lg": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-lg-mobile": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { -webkit-tap-highlight-color: transparent; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .icon-fill { font-variation-settings: 'FILL' 1; }
+        
+        .soft-ambient-shadow {
+            box-shadow: 0 4px 12px rgba(70, 72, 212, 0.12);
+        }
+        
+        .interactive-card:active {
+            transform: scale(0.98);
+            box-shadow: 0 2px 8px rgba(70, 72, 212, 0.15);
+        }
+        
+        /* Checkbox styling */
+        .custom-checkbox {
+            appearance: none;
+            background-color: transparent;
+            margin: 0;
+            font: inherit;
+            color: currentColor;
+            width: 1.25em;
+            height: 1.25em;
+            border: 2px solid var(--tw-colors-outline-variant);
+            border-radius: 0.25em;
+            display: grid;
+            place-content: center;
+            transition: all 0.2s ease-in-out;
+        }
+
+        .custom-checkbox::before {
+            content: "";
+            width: 0.65em;
+            height: 0.65em;
+            transform: scale(0);
+            transition: 120ms transform ease-in-out;
+            box-shadow: inset 1em 1em white;
+            background-color: transparent;
+            transform-origin: center;
+            clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+        }
+
+        .custom-checkbox:checked {
+            background-color: var(--tw-colors-primary);
+            border-color: var(--tw-colors-primary);
+        }
+
+        .custom-checkbox:checked::before {
+            transform: scale(1);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background min-h-screen pb-[100px] antialiased">
+<!-- Header (Task Details Specific - Not TopAppBar since it's a subpage) -->
+<header class="flex justify-between items-center px-container-margin py-4 w-full bg-background sticky top-0 z-40">
+<button aria-label="Go back" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors text-on-surface">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<div class="flex gap-2">
+<button aria-label="Edit task" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors text-on-surface">
+<span class="material-symbols-outlined">edit</span>
+</button>
+<button aria-label="Delete task" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-error-container text-error transition-colors">
+<span class="material-symbols-outlined">delete</span>
+</button>
+</div>
+</header>
+<main class="px-container-margin mt-2 flex flex-col gap-section-gap">
+<!-- Task Header Info -->
+<section class="flex flex-col gap-stack-sm">
+<div class="inline-flex items-center gap-2 px-3 py-1 bg-surface-container-low border border-outline-variant rounded-full w-fit">
+<div class="w-2 h-2 rounded-full bg-tertiary"></div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Cálculo II</span>
+</div>
+<h1 class="font-display text-display md:text-3xl text-on-surface leading-tight mt-2">
+                Taller de integrales
+            </h1>
+<div class="flex items-center gap-2 mt-1 text-primary">
+<span class="material-symbols-outlined icon-fill text-lg">timer</span>
+<span class="font-body-md text-body-md font-semibold">Faltan 1 día, 4 horas</span>
+</div>
+</section>
+<!-- Progress Section -->
+<section class="bg-surface-container-lowest rounded-xl p-4 soft-ambient-shadow border border-surface-container">
+<div class="flex justify-between items-end mb-2">
+<span class="font-title-md text-title-md text-on-surface">Progreso</span>
+<span class="font-label-sm text-label-sm text-primary font-bold">80%</span>
+</div>
+<div class="w-full h-3 bg-primary/15 rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full transition-all duration-500 ease-out" style="width: 80%;"></div>
+</div>
+</section>
+<!-- Subtasks List -->
+<section class="flex flex-col gap-stack-md">
+<h2 class="font-title-md text-title-md text-on-surface">Subtareas</h2>
+<div class="flex flex-col gap-2">
+<!-- Completed Subtask -->
+<label class="flex items-center gap-3 p-3 bg-surface-container-lowest rounded-lg border border-surface-container hover:bg-surface-container-low transition-colors cursor-pointer">
+<input checked="" class="custom-checkbox" type="checkbox"/>
+<span class="font-body-md text-body-md text-on-surface-variant line-through">Repasar métodos de integración por partes</span>
+</label>
+<!-- Completed Subtask -->
+<label class="flex items-center gap-3 p-3 bg-surface-container-lowest rounded-lg border border-surface-container hover:bg-surface-container-low transition-colors cursor-pointer">
+<input checked="" class="custom-checkbox" type="checkbox"/>
+<span class="font-body-md text-body-md text-on-surface-variant line-through">Resolver ejercicios impares del libro (1-15)</span>
+</label>
+<!-- Completed Subtask -->
+<label class="flex items-center gap-3 p-3 bg-surface-container-lowest rounded-lg border border-surface-container hover:bg-surface-container-low transition-colors cursor-pointer">
+<input checked="" class="custom-checkbox" type="checkbox"/>
+<span class="font-body-md text-body-md text-on-surface-variant line-through">Consultar dudas en horario de oficina</span>
+</label>
+<!-- Pending Subtask -->
+<label class="flex items-center gap-3 p-3 bg-surface-container-lowest rounded-lg border border-surface-container hover:bg-surface-container-low transition-colors cursor-pointer">
+<input class="custom-checkbox" type="checkbox"/>
+<span class="font-body-md text-body-md text-on-surface">Pasar en limpio el taller final</span>
+</label>
+<!-- Pending Subtask -->
+<label class="flex items-center gap-3 p-3 bg-surface-container-lowest rounded-lg border border-surface-container hover:bg-surface-container-low transition-colors cursor-pointer">
+<input class="custom-checkbox" type="checkbox"/>
+<span class="font-body-md text-body-md text-on-surface">Escanear y subir a la plataforma Moodle</span>
+</label>
+</div>
+</section>
+<!-- Attachments & Reminders Grid -->
+<section class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<!-- Reminders -->
+<div class="bg-surface-container-lowest p-4 rounded-xl border border-surface-container soft-ambient-shadow">
+<div class="flex items-center gap-2 mb-3">
+<span class="material-symbols-outlined text-outline">notifications</span>
+<h3 class="font-title-md text-title-md text-on-surface">Recordatorios</h3>
+</div>
+<div class="flex flex-col gap-2">
+<div class="flex items-center justify-between text-on-surface-variant">
+<span class="font-body-md text-body-md">1 día antes</span>
+<span class="material-symbols-outlined text-sm">check</span>
+</div>
+<div class="flex items-center justify-between text-on-surface-variant">
+<span class="font-body-md text-body-md">2 horas antes</span>
+<span class="material-symbols-outlined text-sm">schedule</span>
+</div>
+</div>
+</div>
+<!-- Attachments -->
+<div class="bg-surface-container-lowest p-4 rounded-xl border border-surface-container soft-ambient-shadow">
+<div class="flex items-center gap-2 mb-3">
+<span class="material-symbols-outlined text-outline">attach_file</span>
+<h3 class="font-title-md text-title-md text-on-surface">Archivos adjuntos</h3>
+</div>
+<div class="flex flex-col gap-2">
+<a class="flex items-center gap-3 p-2 rounded-lg bg-surface-container-low hover:bg-surface-container transition-colors" href="#">
+<div class="w-10 h-10 rounded bg-error-container text-error flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined">picture_as_pdf</span>
+</div>
+<div class="flex flex-col overflow-hidden">
+<span class="font-body-md text-body-md font-medium text-on-surface truncate">Guia_Integrales.pdf</span>
+<span class="font-label-sm text-label-sm text-outline">2.4 MB</span>
+</div>
+</a>
+</div>
+</div>
+</section>
+<!-- Bottom padding for fixed button -->
+<div class="h-20"></div>
+</main>
+<!-- Fixed Bottom Action -->
+<div class="fixed bottom-0 left-0 w-full p-4 bg-background/90 backdrop-blur-md border-t border-surface-container z-40">
+<button class="w-full h-14 bg-primary text-on-primary rounded-full font-title-md text-title-md flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors shadow-lg active:scale-95 duration-200">
+<span class="material-symbols-outlined">task_alt</span>
+            Marcar como completada
+        </button>
+</div>
+</body></html>
