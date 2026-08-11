@@ -22,10 +22,25 @@
 
 ### Task 1: Scaffold the Expo + TypeScript + Expo Router project
 
+> **Corrected after Task 1 execution (Expo SDK 57):** the original version of this
+> task listed `babel.config.js` as generated output. Verified against
+> https://docs.expo.dev/versions/v57.0.0/config/babel/ — **this is wrong for the
+> current SDK.** As of SDK 57, `create-expo-app` does NOT generate a
+> `babel.config.js` file, and none is needed: "There is no need to create a
+> babel.config.js file unless you need to customize the Babel configuration."
+> `babel-preset-expo` is applied implicitly by Expo CLI's Metro integration and is
+> **not** resolvable as a plain top-level `require()` the way an explicit
+> `babel.config.js` would need — creating the file without going through
+> `npx expo customize babel.config.js` breaks the build (`Cannot find module
+> 'babel-preset-expo'`), confirmed by hand during Task 1's review. Do not create
+> `babel.config.js` in this task. See the same correction in Task 3 below (it
+> no longer needs `babel-plugin-module-resolver` either — Metro has native
+> tsconfig-paths alias support).
+
 **Files:**
-- Create: `package.json`, `app.json`, `tsconfig.json`, `.gitignore`, `babel.config.js`, `assets/` (icons/splash, Expo-generated), `app/_layout.tsx`, `app/index.tsx`
+- Create: `package.json`, `app.json`, `tsconfig.json`, `.gitignore`, `assets/` (icons/splash, Expo-generated), `app/_layout.tsx`, `app/index.tsx`
 - Modify: none directly (existing `README.md` is backed up and restored, not edited)
-- Delete: the template's generated `App.tsx` and its own generated `README.md` (replaced by the restored discovery-phase `README.md`)
+- Delete: the template's generated `App.tsx`, the generated `index.ts` (dead entry point, superseded by `"main": "expo-router/entry"` — the original template still wires `index.ts` to import the now-deleted `App.tsx`), and the scaffold's own generated `README.md` (replaced by the restored discovery-phase `README.md`)
 
 **Interfaces:**
 - Consumes: nothing (first task).
@@ -194,9 +209,22 @@ git commit -m "chore: scaffold src/ folder structure per architecture doc"
 
 ### Task 3: Configure TypeScript strict mode and the `@/` path alias
 
+> **Corrected after Task 1 execution (Expo SDK 57):** the original version of this
+> task added `babel-plugin-module-resolver` via a `babel.config.js` edit. That is
+> unnecessary and must NOT be done — per
+> https://docs.expo.dev/versions/v57.0.0/config/metro/#custom-resolving, "Expo CLI
+> extends the default Metro resolver to add features like Web, Server, and
+> **tsconfig aliases support**" natively. Setting `baseUrl`/`paths` in
+> `tsconfig.json` alone is sufficient for both TypeScript's own checker AND
+> Metro's bundler resolution — no Babel plugin, and no `babel.config.js` file,
+> needed. Do not reintroduce `babel.config.js` (see Task 1's note on why an
+> explicit one breaks the build unless created via `npx expo customize
+> babel.config.js`, which is not required here since no customization is
+> needed).
+
 **Files:**
-- Modify: `tsconfig.json`, `babel.config.js`
-- Create: `src/__tests__/path-alias.smoke.test.ts` (deleted again at the end of Task 6 once the real smoke test exists — see Step 4 note)
+- Modify: `tsconfig.json`
+- Create: `src/__tests__/path-alias.smoke.test.ts` (deleted again at the end of Task 6 once the real smoke test exists — see Step 3 note)
 
 **Interfaces:**
 - Consumes: the `src/` tree from Task 2.
@@ -220,33 +248,7 @@ Replace `tsconfig.json` with:
 }
 ```
 
-- [ ] **Step 2: Install and configure the Babel module resolver**
-
-```bash
-npm install --save-dev babel-plugin-module-resolver
-```
-
-Edit `babel.config.js` to add the alias plugin (keep the existing `presets: ['babel-preset-expo']` line as generated):
-
-```js
-module.exports = function (api) {
-  api.cache(true);
-  return {
-    presets: ["babel-preset-expo"],
-    plugins: [
-      [
-        "module-resolver",
-        {
-          root: ["./"],
-          alias: { "@": "./src" },
-        },
-      ],
-    ],
-  };
-};
-```
-
-- [ ] **Step 3: Write a throwaway smoke test proving the alias resolves**
+- [ ] **Step 2: Write a throwaway smoke test proving the alias resolves**
 
 Create `src/theme/index.ts`:
 
@@ -266,9 +268,9 @@ describe("path alias", () => {
 });
 ```
 
-Note: this test only runs successfully once Jest itself is configured in Task 6 — for now, verify the alias compiles via `npx tsc --noEmit` (Step 4). The test file stays in place; Task 6 will run it for real as part of the Jest smoke test.
+Note: this test only runs successfully once Jest itself is configured in Task 6 — for now, verify the alias compiles via `npx tsc --noEmit` (Step 3) and resolves at bundle time via `npx expo export` (Step 4). The test file stays in place; Task 6 will run it for real as part of the Jest smoke test.
 
-- [ ] **Step 4: Verify TypeScript compiles cleanly with the alias**
+- [ ] **Step 3: Verify TypeScript compiles cleanly with the alias**
 
 ```bash
 npx tsc --noEmit
@@ -276,10 +278,22 @@ npx tsc --noEmit
 
 Expected: exits 0, no errors (in particular, no "Cannot find module '@/theme'" error).
 
+- [ ] **Step 4: Verify Metro's bundler also resolves the alias (not just `tsc`)**
+
+TypeScript's checker and Metro's runtime bundler resolve modules independently — `tsc` passing does not guarantee Metro can actually bundle the import. Prove the alias works end-to-end by temporarily importing it from the app's real entry route, then reverting:
+
+```bash
+npx expo export --platform android
+```
+
+Before running this, temporarily add `import "@/theme";` as the first line of `app/index.tsx`, run the export, confirm it succeeds with zero errors (same pattern as Task 1 Step 9's headless verification), then remove that temporary import line from `app/index.tsx` again (the real usage of the alias starts in later phases — this task only proves the mechanism works). Delete the `dist/` output afterward (gitignored, but keep the working tree tidy).
+
+Expected: `npx expo export --platform android` exits with an "Exported: dist" success message and zero bundling errors, both with and without the temporary import (i.e. the app still exports cleanly after the import line is removed too).
+
 - [ ] **Step 5: Commit**
 
 ```bash
-git add tsconfig.json babel.config.js src/theme/index.ts src/__tests__/path-alias.smoke.test.ts
+git add tsconfig.json src/theme/index.ts src/__tests__/path-alias.smoke.test.ts
 git commit -m "chore: enable TypeScript strict mode and @/ path alias"
 ```
 
