@@ -512,50 +512,69 @@ git commit -m "chore: wire Drizzle ORM over expo-sqlite with empty schema"
 
 ### Task 6: Configure Jest + React Native Testing Library and run the real smoke test
 
+> **Verified before execution (following the pattern from Tasks 1, 3, 4, 5):**
+> checked against https://docs.expo.dev/develop/unit-testing/ before writing
+> this task. Three corrections from the naive version:
+> 1. Expo's official setup keeps the Jest config **inside `package.json`'s
+>    `"jest"` key** — not a separate `jest.config.js` file. No `jest-setup.js`
+>    either; that was a speculative addition for future native-module mocks
+>    that isn't part of the documented minimal setup and isn't needed yet
+>    (YAGNI — add it in whichever later phase first needs to mock a native
+>    module).
+> 2. `transformIgnorePatterns` is explicitly called out by the docs as
+>    "additional configuration" needed only once a project actually imports
+>    node modules that need transpiling through Jest — not part of the base
+>    setup. Skipping it for this bare smoke test; add it in a later phase if a
+>    real test import actually needs it (the docs page has the current regex
+>    if/when that happens — don't hand-write it speculatively now, package
+>    names in that pattern do shift across SDK versions).
+> 3. `@types/jest` installs via the same `expo install` line as `jest-expo`/
+>    `jest` (all three together), and `tsconfig.json` gets an explicit
+>    `"types": ["jest"]` entry per the docs — do this even though it's likely
+>    redundant with TypeScript's default `@types/*` auto-inclusion, since it's
+>    documented and costs nothing.
+> One deliberate deviation from the docs kept as-is: the docs' example script
+> is `"test": "jest --watchAll"`, which never exits on its own (watch mode) —
+> wrong for this task's one-shot, non-interactive verification (Step 4 below
+> needs a command that actually exits). Use plain `"test": "jest"` instead;
+> `--watchAll` is a local-dev convenience, not a requirement, and can be added
+> back as a separate `"test:watch"` script later if wanted.
+
 **Files:**
-- Modify: `package.json` (add `jest` config block and `test` script)
+- Modify: `package.json` (add `"jest"` config block and `"test"` script), `tsconfig.json` (add `"types": ["jest"]`)
 - Modify: `src/__tests__/path-alias.smoke.test.ts` (from Task 3 — now actually runs)
-- Create: `jest.config.js`, `jest-setup.js`
 
 **Interfaces:**
 - Consumes: the alias-resolving test file from Task 3.
 - Produces: `npm test`, the command every later phase's tasks use to run their own unit/component tests (per `docs/10-testing-strategy.md`'s TDD workflow).
 
-- [ ] **Step 1: Install Jest and React Native Testing Library**
+- [ ] **Step 1: Install Jest, React Native Testing Library, and their types**
 
 ```bash
-npx expo install jest-expo jest --dev
-npm install --save-dev @testing-library/react-native @types/jest
+npx expo install jest-expo jest @types/jest @testing-library/react-native --dev
 ```
 
-- [ ] **Step 2: Create the Jest config**
+- [ ] **Step 2: Add the Jest preset and `test` script to `package.json`**
 
-Create `jest.config.js`:
-
-```js
-module.exports = {
-  preset: "jest-expo",
-  setupFilesAfterEach: [],
-  setupFiles: ["./jest-setup.js"],
-  transformIgnorePatterns: [
-    "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg)",
-  ],
-};
-```
-
-Create `jest-setup.js`:
-
-```js
-// Global test setup — extended per phase as native modules need mocking
-// (e.g. expo-notifications, expo-sqlite, expo-file-system in later phases).
-```
-
-- [ ] **Step 3: Add the `test` script**
-
-Edit `package.json`'s `"scripts"` block:
+Edit `package.json` to add a top-level `"jest"` key and a `"test"` script:
 
 ```json
-"test": "jest"
+"scripts": {
+  "test": "jest"
+},
+"jest": {
+  "preset": "jest-expo"
+}
+```
+
+(Keep every existing script and field already in `package.json` — this only adds the `"test"` entry to `"scripts"` and the new top-level `"jest"` key.)
+
+- [ ] **Step 3: Enable Jest's TypeScript types**
+
+Edit `tsconfig.json`'s `compilerOptions` to add:
+
+```json
+"types": ["jest"]
 ```
 
 - [ ] **Step 4: Run the test suite**
@@ -566,10 +585,18 @@ npm test
 
 Expected: 1 test suite (`src/__tests__/path-alias.smoke.test.ts`), 1 test passed ("resolves @/ to src/"), exits 0. This satisfies Phase 0's acceptance criterion ("`jest` runs with zero [feature] test files and exits cleanly" — this one smoke test is the explicitly-allowed exception, per `docs/11-roadmap.md` Phase 0's test expectations).
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Verify TypeScript compiles clean end-to-end**
 
 ```bash
-git add package.json jest.config.js jest-setup.js src/__tests__/path-alias.smoke.test.ts
+npx tsc --noEmit
+```
+
+Expected: exits 0 with **zero** errors now (the `@types/jest`-related errors present since Task 3 — `describe`/`it`/`expect` undefined — should be gone now that `@types/jest` is installed and declared).
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add package.json package-lock.json tsconfig.json src/__tests__/path-alias.smoke.test.ts
 git commit -m "chore: configure Jest and React Native Testing Library"
 ```
 
