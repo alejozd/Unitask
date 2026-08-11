@@ -634,13 +634,55 @@ just individually per-task:
 | `npm test` | exit 0, 1 suite / 1 test passed |
 | `npx drizzle-kit generate` | exit 0, "0 tables... No schema changes, nothing to migrate" (idempotent — re-running after Task 5's original generate produces no new files, as expected for an unchanged empty schema) |
 
-Task 1's on-device visual boot check (`npx expo start` on an actual Android
-emulator/device) was never done by a human either — the product owner
-explicitly accepted the repeated headless bundler verification (`npx expo
-export --platform android`, zero errors, run identically after every task
-that could plausibly affect the entry route) as sufficient to proceed to
-Phase 1, rather than blocking on a manual device check. Worth a real
-on-device look whenever convenient, but it is not a Phase 0 blocker.
+Task 1's on-device visual boot check was deferred at the time (the product
+owner accepted headless bundler verification as sufficient to proceed to
+Phase 1) and was **completed afterward, during Phase 1 wrap-up**: confirmed
+on a real Android emulator (Pixel_8, API level matching this SDK) showing
+the "UniTask" screen exactly as built. Two real blockers surfaced and were
+resolved along the way, documented here for future reference since they'll
+recur for any teammate setting up this project fresh:
+
+1. **Expo Go cannot run this project.** Expo Go (installed fresh from the
+   Play Store) ships SDK 54; this project is SDK 57. Expo Go only ever
+   supports the one SDK version it currently ships with — there is no way to
+   make Expo Go work here short of the Play Store catching up. A custom
+   **development build** (`expo-dev-client`) is required for any on-device
+   testing, always.
+2. **`expo start --tunnel` doesn't work out of the box on this SDK.** The
+   bundled `@expo/ngrok` package spawns a hardcoded legacy ngrok v2.3.41
+   binary, which ngrok's cloud service now rejects outright (`ERR_NGROK_121
+   — minimum supported agent version 3.20.0`) — this is a dead end,
+   patching the binary in place doesn't work either (v3's CLI flags aren't
+   compatible with `@expo/ngrok`'s v2-oriented process wrapper). Two working
+   alternatives, in order of preference:
+   - Set `EXPO_UNSTABLE_TUNNEL_V2=1` (Expo's own WebSocket-based tunnel,
+     `@expo/ws-tunnel`) — requires being logged in to an Expo account
+     (`npx expo login`), no ngrok involved at all. Simplest once logged in.
+   - Or run a real, current ngrok v3 binary yourself (`winget install
+     Ngrok.Ngrok`, then `ngrok update` since winget's own listing can lag —
+     confirm `ngrok version` reports 3.20.0+), point it at port 8081, and
+     pass its public URL to Expo via `EXPO_PACKAGER_PROXY_URL=<https url>`
+     (an undocumented-but-functional env var Expo's `UrlCreator` checks
+     first, before any tunnel logic) — necessary because a *manually*-run
+     ngrok tunnel, unlike Expo's own orchestrated one, doesn't tell Metro
+     its own public origin, and Metro will otherwise embed its internal
+     `:8081` port into manifest/bundle URLs, which breaks through a plain
+     HTTPS tunnel.
+
+The path that actually got a build running end-to-end on this dev machine:
+Android Studio installed locally (SDK at a custom `D:\Android\Sdk` path, so
+`ANDROID_HOME`/`ANDROID_SDK_ROOT`/`JAVA_HOME` needed to be set explicitly
+per shell session — they don't come from a fresh shell automatically right
+after installing), an AVD created (`Pixel_8`), then `npx expo run:android`
+— a genuine local Gradle build (~7 minutes first time), installed straight
+onto the emulator, no EAS/cloud dependency at all. `npx eas build --profile
+development --platform android` was also configured and queued in
+parallel (project linked as `@alejozd/UniTask`, `eas.json` has a
+`development` profile with `developmentClient: true` + internal APK
+distribution) as the path for testing without a local Android Studio
+install — but EAS's free tier queue can run over an hour at busy times, so
+the local Gradle path is faster whenever Android Studio is already
+available.
 
 ### Final whole-branch review fixes (post-Task-6, before Phase 0 sign-off)
 
