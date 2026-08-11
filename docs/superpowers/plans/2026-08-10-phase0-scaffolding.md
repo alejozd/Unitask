@@ -309,31 +309,49 @@ git commit -m "chore: enable TypeScript strict mode and @/ path alias"
 - Consumes: nothing new.
 - Produces: `npm run lint` and `npm run format`, used as a manual/CI gate in every later phase (not enforced automatically by this plan, but available).
 
-- [ ] **Step 1: Install ESLint and the Expo config**
+> **Corrected before execution (Expo SDK 57), following the pattern from Tasks 1
+> and 3:** verified against https://docs.expo.dev/guides/using-eslint/ before
+> writing this task rather than after a failure. The officially documented setup
+> uses the `npx expo lint` bootstrap command (which installs `eslint` +
+> `eslint-config-expo` itself and generates `eslint.config.js` extending
+> `eslint-config-expo/flat`), not a hand-installed/hand-written config. Prettier
+> integration uses `eslint-plugin-prettier/recommended` + `eslint/config`'s
+> `defineConfig`, not a bare `eslint-config-prettier` spread. Steps below reflect
+> the documented approach.
+
+- [ ] **Step 1: Bootstrap ESLint via the Expo CLI**
 
 ```bash
-npx expo install eslint eslint-config-expo --dev
-npm install --save-dev prettier eslint-config-prettier
+npx expo lint
 ```
 
-- [ ] **Step 2: Create the ESLint flat config**
+Expected: installs `eslint` and `eslint-config-expo` as devDependencies, creates `eslint.config.js` at the project root (extending `eslint-config-expo/flat`), and adds a `"lint": "expo lint"` script to `package.json`. It will also prompt to run immediately after setup — let it run once; a handful of warnings against the generated `app/`/`assets/` files is expected and fine at this stage (no application code exists to actually lint yet beyond the Task 1/2/3 scaffolding).
 
-Create `eslint.config.js`:
+- [ ] **Step 2: Install Prettier and its ESLint integration**
+
+```bash
+npx expo install prettier eslint-config-prettier eslint-plugin-prettier --dev
+```
+
+- [ ] **Step 3: Wire Prettier into the generated ESLint flat config**
+
+Edit the `eslint.config.js` that Step 1 generated to match this shape (keep whatever `expoConfig` import Step 1 produced; add the two new requires and the `ignores` entry):
 
 ```js
+const { defineConfig } = require("eslint/config");
 const expoConfig = require("eslint-config-expo/flat");
-const prettierConfig = require("eslint-config-prettier");
+const eslintPluginPrettierRecommended = require("eslint-plugin-prettier/recommended");
 
-module.exports = [
-  ...expoConfig,
-  prettierConfig,
+module.exports = defineConfig([
+  expoConfig,
+  eslintPluginPrettierRecommended,
   {
-    ignores: ["dist/*", "node_modules/*", "src/db/migrations/*"],
+    ignores: ["dist/*", "src/db/migrations/*"],
   },
-];
+]);
 ```
 
-- [ ] **Step 3: Create the Prettier config**
+- [ ] **Step 4: Create the Prettier config**
 
 Create `.prettierrc.json`:
 
@@ -354,27 +372,26 @@ dist
 src/db/migrations
 ```
 
-- [ ] **Step 4: Add npm scripts**
+- [ ] **Step 5: Add the `format` npm script**
 
-Edit `package.json`'s `"scripts"` block to add:
+Edit `package.json`'s `"scripts"` block to add (leave the `"lint"` script exactly as Step 1 generated it):
 
 ```json
-"lint": "eslint .",
 "format": "prettier --write ."
 ```
 
-- [ ] **Step 5: Verify lint runs clean**
+- [ ] **Step 6: Verify lint runs clean**
 
 ```bash
 npm run lint
 ```
 
-Expected: exits 0, no errors (warnings about the generated `assets/` or `.expo/` folders are acceptable if present — those are already covered by Expo's default ignore patterns bundled in `eslint-config-expo`).
+Expected: exits 0. Prettier-formatting violations now surface as ESLint errors (via `eslint-plugin-prettier`) per the docs — if Step 1's own generated files (or Tasks 1-3's files) fail Prettier formatting, run `npm run format` once to auto-fix them, then re-run `npm run lint` to confirm exit 0.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add eslint.config.js .prettierrc.json .prettierignore package.json
+git add eslint.config.js .prettierrc.json .prettierignore package.json package-lock.json
 git commit -m "chore: configure ESLint and Prettier"
 ```
 
