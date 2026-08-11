@@ -8,7 +8,7 @@ export const tasks = sqliteTable("tasks", {
   description: text("description"),
   subjectId: text("subject_id")
     .notNull()
-    .references(() => subjects.id),
+    .references(() => subjects.id, { onDelete: "cascade" }),
   // Combined date+time (03-business-rules.md / 06-data-model.md assumption:
   // the "due date" and "due time" form fields persist as one instant, since
   // every rule — status, "vencida", reminder offsets — operates on a single
@@ -21,3 +21,6 @@ export const tasks = sqliteTable("tasks", {
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
+
+export type Task = typeof tasks.$inferSelect;
+export type NewTask = typeof tasks.$inferInsert;

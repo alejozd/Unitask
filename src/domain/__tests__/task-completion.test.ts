@@ -65,4 +65,16 @@ describe("completeTask", () => {
     });
     expect(result.subtaskIdsToCheck).toEqual([]);
   });
+
+  it("does not recompute completedAt/completedLate when the task is already completed (03-business-rules.md §4)", () => {
+    const originalCompletedAt = new Date("2026-06-05T00:00:00.000Z");
+    const result = completeTask({
+      dueDateTime: new Date("2026-06-01T12:00:00.000Z"),
+      now: new Date("2026-07-01T00:00:00.000Z"), // would compute a different completedLate if not short-circuited
+      subtasks: [],
+      current: { completed: true, completedAt: originalCompletedAt, completedLate: true },
+    });
+    expect(result.completedAt).toEqual(originalCompletedAt);
+    expect(result.completedLate).toBe(true);
+  });
 });

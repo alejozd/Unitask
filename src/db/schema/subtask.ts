@@ -6,8 +6,11 @@ export const subtasks = sqliteTable("subtasks", {
   id: text("id").primaryKey(),
   taskId: text("task_id")
     .notNull()
-    .references(() => tasks.id),
+    .references(() => tasks.id, { onDelete: "cascade" }),
   text: text("text").notNull(),
   completed: integer("completed", { mode: "boolean" }).notNull().default(false),
   order: integer("order").notNull(),
 });
+
+export type Subtask = typeof subtasks.$inferSelect;
+export type NewSubtask = typeof subtasks.$inferInsert;

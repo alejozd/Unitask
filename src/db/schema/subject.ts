@@ -27,9 +27,14 @@ export const subjects = sqliteTable("subjects", {
   courseCode: text("course_code"),
   professorName: text("professor_name"),
   color: text("color", { enum: SUBJECT_COLORS }).notNull(),
+  // Deliberately NOT cascade: a semester with subjects should never be
+  // deletable (see 03-business-rules.md §11 read-only-when-closed).
   semesterId: text("semester_id")
     .notNull()
     .references(() => semesters.id),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
+
+export type Subject = typeof subjects.$inferSelect;
+export type NewSubject = typeof subjects.$inferInsert;

@@ -3,6 +3,13 @@ export interface CompleteTaskInput {
   /** Defaults to the current time when not provided. */
   now?: Date;
   subtasks: { id: string; completed: boolean }[];
+  /**
+   * If the task is already completed, pass its existing completedAt/
+   * completedLate here — completeTask will return them unchanged rather
+   * than recomputing, since completedLate must never be recalculated
+   * after being set once (03-business-rules.md §4).
+   */
+  current?: { completed: boolean; completedAt: Date; completedLate: boolean };
 }
 
 export interface CompleteTaskResult {
@@ -24,6 +31,17 @@ export interface CompleteTaskResult {
  * never drift apart.
  */
 export function completeTask(input: CompleteTaskInput): CompleteTaskResult {
+  if (input.current?.completed) {
+    return {
+      completed: true,
+      completedAt: input.current.completedAt,
+      completedLate: input.current.completedLate,
+      subtaskIdsToCheck: input.subtasks
+        .filter((subtask) => !subtask.completed)
+        .map((subtask) => subtask.id),
+    };
+  }
+
   const completedAt = input.now ?? new Date();
 
   return {

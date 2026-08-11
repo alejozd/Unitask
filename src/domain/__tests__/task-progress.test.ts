@@ -29,4 +29,9 @@ describe("calculateTaskProgress", () => {
     const subtasks = [{ completed: true }, { completed: true }, { completed: false }];
     expect(calculateTaskProgress(subtasks, false)).toBe(67);
   });
+
+  it("ignores taskCompleted when subtasks exist — the ratio always comes from actual subtask state (completion-time auto-check is task-completion.ts's job, not this function's)", () => {
+    const subtasks = [{ completed: false }, { completed: false }];
+    expect(calculateTaskProgress(subtasks, true)).toBe(0);
+  });
 });

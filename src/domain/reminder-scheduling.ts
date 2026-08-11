@@ -25,7 +25,7 @@ const OFFSET_UNIT_TO_MS: Record<ReminderOffsetUnit, number> = {
  */
 export function computeFireAt(reminder: ReminderSpec, dueDateTime: Date): Date {
   if (reminder.kind === "fixed") {
-    return reminder.fixedDateTime;
+    return new Date(reminder.fixedDateTime.getTime());
   }
   const offsetMs = reminder.offsetValue * OFFSET_UNIT_TO_MS[reminder.offsetUnit];
   return new Date(dueDateTime.getTime() - offsetMs);
@@ -89,6 +89,6 @@ export function rescheduleOnDueDateChange(
     if (fixedDateTime.getTime() >= newDueDateTime.getTime()) {
       return { action: "remove", id: reminder.id, reason: "at-or-after-due-date" };
     }
-    return { action: "keep", id: reminder.id, newFireAt: fixedDateTime };
+    return { action: "keep", id: reminder.id, newFireAt: new Date(fixedDateTime.getTime()) };
   });
 }

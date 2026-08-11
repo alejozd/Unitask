@@ -51,4 +51,10 @@ describe("deriveTaskStatus", () => {
       "Pendiente",
     );
   });
+
+  it("returns En progreso (not Completada) when progress is 100% but the task hasn't been explicitly marked complete", () => {
+    expect(deriveTaskStatus({ completed: false, dueDateTime: future, progress: 100, now })).toBe(
+      "En progreso",
+    );
+  });
 });

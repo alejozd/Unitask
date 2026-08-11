@@ -7,6 +7,10 @@ export function calculateTaskProgress(
   subtasks: { completed: boolean }[],
   taskCompleted: boolean,
 ): number {
+  // taskCompleted only matters for the zero-subtask case below — with real
+  // subtasks, the ratio is always authoritative (task-completion.ts
+  // guarantees a completed task has every subtask checked, so this never
+  // actually diverges in practice).
   if (subtasks.length === 0) {
     return taskCompleted ? 100 : 0;
   }

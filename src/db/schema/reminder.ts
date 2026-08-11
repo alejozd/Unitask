@@ -6,7 +6,7 @@ export const reminders = sqliteTable("reminders", {
   id: text("id").primaryKey(),
   taskId: text("task_id")
     .notNull()
-    .references(() => tasks.id),
+    .references(() => tasks.id, { onDelete: "cascade" }),
   kind: text("kind", { enum: ["relative", "fixed"] }).notNull(),
   // Required when kind = "relative", null when kind = "fixed".
   offsetValue: integer("offset_value"),
@@ -22,3 +22,6 @@ export const reminders = sqliteTable("reminders", {
   notificationId: text("notification_id"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
+
+export type Reminder = typeof reminders.$inferSelect;
+export type NewReminder = typeof reminders.$inferInsert;

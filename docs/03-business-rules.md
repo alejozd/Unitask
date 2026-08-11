@@ -15,6 +15,8 @@ Task status is **never** stored as a free-form field the user sets directly. It 
 | **Completada** | `completed == true` (regardless of due date, subtask state, or progress) |
 | **Vencida** | `completed == false` AND `dueDateTime < now` (regardless of progress) |
 
+Note: a task with 100% progress (every subtask checked) that has not been explicitly marked complete is still "En progreso", not "Completada" — progress reaching 100% never auto-completes a task; only the explicit completion action does.
+
 Evaluation order matters: check `completed` first (→ Completada), then check `dueDateTime < now` (→ Vencida), then fall back to the progress-based Pendiente/En progreso split. This means an incomplete task past its due date is always "Vencida," even if it has partial progress — "Vencida" takes priority over "En progreso" for incomplete tasks.
 
 "En progreso" is never chosen by the user; it becomes true automatically the instant any subtask is checked (progress > 0%) and the task itself has not been marked complete.

@@ -30,7 +30,7 @@ CREATE TABLE `tasks` (
 	`completed_late` integer DEFAULT false NOT NULL,
 	`created_at` integer NOT NULL,
 	`updated_at` integer NOT NULL,
-	FOREIGN KEY (`subject_id`) REFERENCES `subjects`(`id`) ON UPDATE no action ON DELETE no action
+	FOREIGN KEY (`subject_id`) REFERENCES `subjects`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
 CREATE TABLE `subtasks` (
@@ -39,7 +39,7 @@ CREATE TABLE `subtasks` (
 	`text` text NOT NULL,
 	`completed` integer DEFAULT false NOT NULL,
 	`order` integer NOT NULL,
-	FOREIGN KEY (`task_id`) REFERENCES `tasks`(`id`) ON UPDATE no action ON DELETE no action
+	FOREIGN KEY (`task_id`) REFERENCES `tasks`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
 CREATE TABLE `reminders` (
@@ -52,7 +52,7 @@ CREATE TABLE `reminders` (
 	`computed_fire_at` integer NOT NULL,
 	`notification_id` text,
 	`created_at` integer NOT NULL,
-	FOREIGN KEY (`task_id`) REFERENCES `tasks`(`id`) ON UPDATE no action ON DELETE no action
+	FOREIGN KEY (`task_id`) REFERENCES `tasks`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
 CREATE TABLE `attachments` (
@@ -63,7 +63,7 @@ CREATE TABLE `attachments` (
 	`mime_type` text NOT NULL,
 	`size_bytes` integer NOT NULL,
 	`created_at` integer NOT NULL,
-	FOREIGN KEY (`task_id`) REFERENCES `tasks`(`id`) ON UPDATE no action ON DELETE no action
+	FOREIGN KEY (`task_id`) REFERENCES `tasks`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
 CREATE TABLE `settings` (
