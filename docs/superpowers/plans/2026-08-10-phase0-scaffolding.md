@@ -463,12 +463,19 @@ Create `src/db/client.ts`:
 import { openDatabaseSync } from "expo-sqlite";
 import { drizzle } from "drizzle-orm/expo-sqlite";
 
-import * as schema from "./schema";
-
 const sqlite = openDatabaseSync("unitask.db", { enableChangeListener: true });
 
-export const db = drizzle(sqlite, { schema });
+export const db = drizzle(sqlite);
 ```
+
+> **Corrected post-hoc (caught by Phase 0's Definition-of-Done `npm run lint`
+> check, after Task 5 originally shipped this file with `import * as schema
+> from "./schema"` and `drizzle(sqlite, { schema })`):** `./schema` exports
+> nothing until Phase 1 adds real tables, so importing it as a namespace
+> trips ESLint's `import/namespace` rule (an empty namespace object). Phase 1
+> must re-add `import * as schema from "./schema";` and `drizzle(sqlite, {
+> schema })` once `src/db/schema/index.ts` actually re-exports real tables —
+> note this explicitly in Phase 1's own plan so it isn't missed.
 
 - [ ] **Step 4: Create the `drizzle-kit` config**
 
@@ -614,3 +621,20 @@ All six tasks above complete, in order, means:
 - `npm test` passes with the one allowed smoke test (Task 6).
 
 This unblocks Phase 1 (data layer — full Drizzle schema for all 7 entities and the pure business-logic functions in `src/domain`), which will be written as its own separate implementation plan once Phase 0 is executed and reviewed.
+
+### Actual end-to-end verification (run after Task 6, at commit `85218bd`)
+
+All four commands run fresh, in sequence, against the real working tree — not
+just individually per-task:
+
+| Check | Result |
+|---|---|
+| `npm run lint` | exit 0, "✖" — clean (one `import/namespace` error was caught here, in `src/db/client.ts`, that neither Task 5 nor Task 6 individually surfaced since neither re-ran `npm run lint` after Task 5 added the now-removed empty schema import; fixed in commit `85218bd`, see Task 5's Step 3 note above) |
+| `npx tsc --noEmit` | exit 0, zero errors |
+| `npm test` | exit 0, 1 suite / 1 test passed |
+| `npx drizzle-kit generate` | exit 0, "0 tables... No schema changes, nothing to migrate" (idempotent — re-running after Task 5's original generate produces no new files, as expected for an unchanged empty schema) |
+
+Task 1's on-device visual boot check (`npx expo start` on an actual Android
+emulator/device) is the one item in this list that could not be verified by
+an agent and still needs a human to confirm before Phase 0 is fully signed
+off.
