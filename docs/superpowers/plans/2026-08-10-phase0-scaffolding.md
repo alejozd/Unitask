@@ -629,7 +629,7 @@ just individually per-task:
 
 | Check | Result |
 |---|---|
-| `npm run lint` | exit 0, "✖" — clean (one `import/namespace` error was caught here, in `src/db/client.ts`, that neither Task 5 nor Task 6 individually surfaced since neither re-ran `npm run lint` after Task 5 added the now-removed empty schema import; fixed in commit `85218bd`, see Task 5's Step 3 note above) |
+| `npm run lint` | exit 0, zero errors — clean (one `import/namespace` error was caught here, in `src/db/client.ts`, that neither Task 5 nor Task 6 individually surfaced since neither re-ran `npm run lint` after Task 5 added the now-removed empty schema import; fixed in commit `85218bd`, see Task 5's Step 3 note above) |
 | `npx tsc --noEmit` | exit 0, zero errors |
 | `npm test` | exit 0, 1 suite / 1 test passed |
 | `npx drizzle-kit generate` | exit 0, "0 tables... No schema changes, nothing to migrate" (idempotent — re-running after Task 5's original generate produces no new files, as expected for an unchanged empty schema) |
@@ -638,3 +638,37 @@ Task 1's on-device visual boot check (`npx expo start` on an actual Android
 emulator/device) is the one item in this list that could not be verified by
 an agent and still needs a human to confirm before Phase 0 is fully signed
 off.
+
+### Final whole-branch review fixes (post-Task-6, before Phase 0 sign-off)
+
+The final review (range `b55d9ce..62fe926`, opus model) caught issues the
+per-task reviews structurally couldn't — cumulative/cross-task drift, not any
+single task's fault. Fixed directly, no new task/subagent round trip needed
+since each was a small, unambiguous, mechanical correction:
+
+- **`.prettierignore` didn't cover `docs/`, `Documentacion/`, `.superpowers/`,
+  `.atl/`, `.expo/`, `package-lock.json`** — meaning a future `npm run format`
+  would have rewritten the discovery-phase docs tree, directly violating this
+  plan's own "preserve `docs/`" constraint. Added those paths.
+- **`app.json` itself wasn't Prettier-formatted** (ESLint doesn't lint JSON,
+  so `npm run lint` gave false confidence) — formatted it.
+- **`eslint.config.js`'s `ignores` used `dist/*`/`src/db/migrations/*`**
+  (single-segment glob) instead of `dist/**`/`src/db/migrations/**` — fixed
+  so nested paths (e.g. `src/db/migrations/meta/`) stay covered.
+- **`src/theme/index.ts`'s `PLACEHOLDER_TOKEN`** got a `TODO(Phase 2)` comment
+  marking it for deletion once real design tokens exist.
+- **`.npmrc`** got an explanatory comment (why `legacy-peer-deps=true` exists,
+  which commit has the full investigation, when it's safe to remove) so it
+  doesn't become unexplained folklore.
+- **`docs/11-roadmap.md`**: fixed a stale `jest.config.js` mention in Phase
+  0's file list (config actually lives in `package.json`), and added a
+  "Carried over from Phase 0" note to Phase 1's entry recording the two
+  obligations Task 5 deliberately deferred (schema re-wired into
+  `src/db/client.ts`; on-device migration bundling via `babel.config.js`/
+  `metro.config.js`) — previously these lived only in this plan file, which
+  Phase 1's own planner has no reason to re-read.
+
+Not fixed here, left for explicit product/human decision: the committed
+`LICENSE` file still says "Copyright (c) 2015-present 650 Industries, Inc.
+(aka Expo)" — a template artifact from `create-expo-app` (Task 1) that needs
+a real license/copyright choice, not something to guess at.

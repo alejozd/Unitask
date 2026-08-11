@@ -12,7 +12,7 @@ No phase in this roadmap has been executed yet — this discovery phase produced
 
 **Features included**: Expo project init (managed workflow), TypeScript configuration, Expo Router base setup, folder structure from `07-architecture.md`, Drizzle + `expo-sqlite` wiring (empty schema), lint/format config, Jest configuration.
 
-**Key files/modules**: `app/` root layout, `src/db/` (empty schema scaffold), `drizzle.config.ts`, `tsconfig.json`, `jest.config.js`.
+**Key files/modules**: `app/` root layout, `src/db/` (empty schema scaffold), `drizzle.config.ts`, `tsconfig.json`, Jest config (lives in `package.json`'s `"jest"` key per Expo's documented setup, not a separate `jest.config.js` file).
 
 **Dependencies**: none (first phase).
 
@@ -31,6 +31,10 @@ No phase in this roadmap has been executed yet — this discovery phase produced
 **Key files/modules**: `src/db/schema/*.ts`, `src/db/migrations/`, `src/domain/task-status.ts`, `src/domain/task-progress.ts`, `src/domain/task-completion.ts`, `src/domain/reminder-scheduling.ts`, `src/domain/semester-lifecycle.ts`, `src/domain/subject-deletion.ts`.
 
 **Dependencies**: Phase 0.
+
+**Carried over from Phase 0** (deferred there deliberately, must be picked up here — see `docs/superpowers/plans/2026-08-10-phase0-scaffolding.md` Tasks 1 and 5 for the full reasoning):
+- `src/db/client.ts` currently calls `drizzle(sqlite)` with no schema — re-add `import * as schema from "./schema"; ... drizzle(sqlite, { schema })` once `src/db/schema/index.ts` actually re-exports real tables (an empty-namespace import was previously tripping ESLint's `import/namespace` rule).
+- On-device migration bundling was never wired: `babel.config.js` (via `npx expo customize babel.config.js`, never hand-written — see Phase 0 Task 1's note on why a hand-written one breaks this Expo SDK's build) needs the `inline-import` plugin for `.sql` files, and `metro.config.js` needs `config.resolver.sourceExts.push('sql')`, before `drizzle-orm/expo-sqlite/migrator`'s `useMigrations` hook can run a generated `migrations.js` on-device. Phase 0 only proved `npx drizzle-kit generate` (a CLI/Node process) works against an empty schema — it was never exercised against a real table, so treat "generate produces a real `.sql` file" as unverified until this phase's first schema change.
 
 **Acceptance criteria**: schema matches `06-data-model.md` field-for-field; migration applies cleanly to a fresh SQLite DB; every rule in `03-business-rules.md` §1–§4, §7, §10, §12 has a corresponding pure function with passing unit tests.
 

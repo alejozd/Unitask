@@ -1,3 +1,9 @@
 node_modules
 dist
 src/db/migrations
+docs
+Documentacion
+.superpowers
+.atl
+.expo
+package-lock.json
