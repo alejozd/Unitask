@@ -635,9 +635,12 @@ just individually per-task:
 | `npx drizzle-kit generate` | exit 0, "0 tables... No schema changes, nothing to migrate" (idempotent — re-running after Task 5's original generate produces no new files, as expected for an unchanged empty schema) |
 
 Task 1's on-device visual boot check (`npx expo start` on an actual Android
-emulator/device) is the one item in this list that could not be verified by
-an agent and still needs a human to confirm before Phase 0 is fully signed
-off.
+emulator/device) was never done by a human either — the product owner
+explicitly accepted the repeated headless bundler verification (`npx expo
+export --platform android`, zero errors, run identically after every task
+that could plausibly affect the entry route) as sufficient to proceed to
+Phase 1, rather than blocking on a manual device check. Worth a real
+on-device look whenever convenient, but it is not a Phase 0 blocker.
 
 ### Final whole-branch review fixes (post-Task-6, before Phase 0 sign-off)
 
