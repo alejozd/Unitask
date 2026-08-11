@@ -399,6 +399,34 @@ git commit -m "chore: configure ESLint and Prettier"
 
 ### Task 5: Wire Drizzle ORM + `expo-sqlite` (empty schema)
 
+> **Verified before execution (following the pattern from Tasks 1, 3, 4):**
+> checked against https://orm.drizzle.team/docs/connect-expo-sqlite and npm's
+> registry directly before writing this task. Two corrections from the naive
+> version of this task:
+> 1. `openDatabaseSync` must be called with `{ enableChangeListener: true }` —
+>    Drizzle's `useLiveQuery` hook (the reactive-read mechanism `docs/07-architecture.md`
+>    Rule 1 depends on, used starting Phase 1+) silently does not update without
+>    it. Cheap to add now, easy to forget later.
+> 2. The Drizzle docs' own setup guide also describes editing `babel.config.js`
+>    (an `inline-import` plugin for `.sql` files) and `metro.config.js`
+>    (`resolver.sourceExts.push('sql')`) so a generated `migrations.js` file can
+>    be imported into the app bundle and run on-device via the
+>    `drizzle-orm/expo-sqlite/migrator` `useMigrations` hook. **That wiring is
+>    OUT OF SCOPE for this task** — Phase 0's acceptance criteria only requires
+>    `drizzle-kit generate` (a Node CLI command, not something Metro/Babel
+>    touches) to succeed and a usable client export; nothing runs migrations
+>    on-device yet in Phase 0. Do NOT create `babel.config.js` or
+>    `metro.config.js` here (see Task 1's note on why a hand-written
+>    `babel.config.js` breaks the build). This is deferred to whichever future
+>    phase first needs to actually open and migrate a real on-device database —
+>    flag it explicitly in that phase's own plan (via `npx expo customize
+>    babel.config.js`, not a hand-written file, per the same lesson).
+> Installed package versions: confirmed via `npm view drizzle-orm dist-tags` /
+> `npm view drizzle-kit version` that the plain (non-`@rc`/non-`@next`) stable
+> releases — `drizzle-orm@latest` (0.45.x) and `drizzle-kit@latest` (0.31.x) —
+> already support `expo-sqlite` natively; do not install the `@rc`/`@next` tags
+> some Drizzle docs pages show for their upcoming v1 release.
+
 **Files:**
 - Create: `src/db/schema/index.ts`, `src/db/client.ts`, `drizzle.config.ts`
 - Modify: `package.json` (dependencies only, via install commands)
@@ -437,7 +465,7 @@ import { drizzle } from "drizzle-orm/expo-sqlite";
 
 import * as schema from "./schema";
 
-const sqlite = openDatabaseSync("unitask.db");
+const sqlite = openDatabaseSync("unitask.db", { enableChangeListener: true });
 
 export const db = drizzle(sqlite, { schema });
 ```
