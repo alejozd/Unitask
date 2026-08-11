@@ -32,9 +32,10 @@ No phase in this roadmap has been executed yet — this discovery phase produced
 
 **Dependencies**: Phase 0.
 
-**Carried over from Phase 0** (deferred there deliberately, must be picked up here — see `docs/superpowers/plans/2026-08-10-phase0-scaffolding.md` Tasks 1 and 5 for the full reasoning):
+**Carried over from Phase 0** (deferred there deliberately, must be picked up here — see `docs/superpowers/plans/2026-08-10-phase0-scaffolding.md` Task 5 for the full reasoning):
 - `src/db/client.ts` currently calls `drizzle(sqlite)` with no schema — re-add `import * as schema from "./schema"; ... drizzle(sqlite, { schema })` once `src/db/schema/index.ts` actually re-exports real tables (an empty-namespace import was previously tripping ESLint's `import/namespace` rule).
-- On-device migration bundling was never wired: `babel.config.js` (via `npx expo customize babel.config.js`, never hand-written — see Phase 0 Task 1's note on why a hand-written one breaks this Expo SDK's build) needs the `inline-import` plugin for `.sql` files, and `metro.config.js` needs `config.resolver.sourceExts.push('sql')`, before `drizzle-orm/expo-sqlite/migrator`'s `useMigrations` hook can run a generated `migrations.js` on-device. Phase 0 only proved `npx drizzle-kit generate` (a CLI/Node process) works against an empty schema — it was never exercised against a real table, so treat "generate produces a real `.sql` file" as unverified until this phase's first schema change.
+
+**Note on migration verification**: this phase's "migration applies cleanly to a fresh SQLite DB" criterion is satisfied via a Node-side integration test (`drizzle-orm/better-sqlite3` applying the generated `.sql` against an in-memory DB — no Expo/RN runtime needed for this check). **On-device** migration execution (the app actually opening and migrating a real device database) is intentionally NOT part of this phase — see Phase 2's own "Carried over" note below for why and when that gets wired.
 
 **Acceptance criteria**: schema matches `06-data-model.md` field-for-field; migration applies cleanly to a fresh SQLite DB; every rule in `03-business-rules.md` §1–§4, §7, §10, §12 has a corresponding pure function with passing unit tests.
 
@@ -51,6 +52,8 @@ No phase in this roadmap has been executed yet — this discovery phase produced
 **Key files/modules**: `app/onboarding/primer-semestre.tsx`, `app/semestres/index.tsx`, `app/materia/nueva.tsx`, `app/materia/[id]/index.tsx`, `app/materia/[id]/editar.tsx`, `src/db/repositories/semester.ts`, `src/db/repositories/subject.ts`.
 
 **Dependencies**: Phase 1.
+
+**Carried over from Phase 0** (this is the first phase that actually opens a real on-device database, so this is where the deferred wiring belongs — see `docs/superpowers/plans/2026-08-10-phase0-scaffolding.md` Task 5's correction note): on-device migration bundling was never wired in Phase 0 or Phase 1. `babel.config.js` (create via `npx expo customize babel.config.js`, never hand-written — see Phase 0 Task 1's note on why a hand-written one breaks this Expo SDK's build) needs the `inline-import` plugin for `.sql` files, and `metro.config.js` (doesn't exist yet either) needs `config.resolver.sourceExts.push('sql')`, before `drizzle-orm/expo-sqlite/migrator`'s `useMigrations` hook can run the generated migration bundle on-device. This phase's first-run bootstrap flow is the first real reason the app needs to open+migrate an actual device database, so this wiring is this phase's first task, not a standalone concern bolted on later.
 
 **Acceptance criteria**: first launch forces semester creation before any subject can be created; creating a second semester auto-closes the first; closing a semester makes its subjects read-only (create/edit/delete disabled); subject color picker only offers the fixed palette (`03-business-rules.md` §8).
 
