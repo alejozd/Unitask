@@ -1,4 +1,3 @@
-import { router } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
@@ -23,9 +22,17 @@ export default function PrimerSemestreScreen() {
     setSubmitting(true);
     try {
       await createSemester(trimmedLabel);
-      router.replace("/(tabs)");
-    } finally {
+      // Deliberately no navigation call here. `app/_layout.tsx`'s effect
+      // owns the redirect to `/(tabs)`, firing once its own live query of
+      // active semesters actually reflects this write — navigating from
+      // here instead raced that same query and bounced back to this
+      // screen with the form silently reset (reproduced on-device). Stay
+      // in the `submitting` state (spinner visible) until the root layout
+      // unmounts this screen for us; only clear it below if the write
+      // itself failed.
+    } catch (err) {
       setSubmitting(false);
+      throw err;
     }
   }
 

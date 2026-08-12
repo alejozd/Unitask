@@ -1,6 +1,7 @@
 import { useMigrations } from "drizzle-orm/expo-sqlite/migrator";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
-import { Redirect, Stack, usePathname } from "expo-router";
+import { router, Stack, usePathname } from "expo-router";
+import { useEffect } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { db } from "@/db/client";
@@ -37,6 +38,45 @@ export default function RootLayout() {
     [success],
   );
 
+  const migrationsReady = success && updatedAt !== undefined;
+  const hasActiveSemester = migrationsReady && (activeSemesters?.length ?? 0) > 0;
+  const onOnboardingScreen = pathname.startsWith("/onboarding");
+
+  // Navigate imperatively, in an effect, instead of rendering a declarative
+  // <Redirect> tied to `pathname`/`activeSemesters` changing together. The
+  // declarative form caused a real "Maximum update depth exceeded" crash
+  // on-device the moment `/(tabs)` became a real route (previously it just
+  // 404'd, masking the loop): navigating away from onboarding, re-rendering
+  // this layout with a not-yet-updated `activeSemesters` (the live query's
+  // change-driven refresh hadn't landed yet), rendering <Redirect> back to
+  // onboarding, and repeating — all within React Navigation's synchronous
+  // re-render cascade for a single navigation transition, hitting React's
+  // nested-update ceiling. Running the redirect in a `useEffect` instead
+  // lets each navigation settle (commit) before the next one is even
+  // considered, breaking that cascade.
+  // This effect owns BOTH directions of the redirect, not just "push into
+  // onboarding when there's no semester". `app/onboarding/primer-semestre.tsx`
+  // deliberately does NOT call router.replace("/(tabs)") itself after
+  // creating a semester — it just awaits the write and lets this effect
+  // react once the live query actually reflects it. Doing the forward
+  // navigation from the onboarding screen instead raced this same
+  // `activeSemesters` live query (its change-driven refresh from the INSERT
+  // hadn't landed yet when the screen navigated), so the freshly-mounted
+  // `/(tabs)` route would render with stale `hasActiveSemester = false`,
+  // this effect would send it straight back to onboarding, and the user
+  // would see the form reset to empty with no visible error — reproduced
+  // on-device. Making this effect the single source of truth for both
+  // directions means the forward navigation only ever fires once
+  // `hasActiveSemester` has actually flipped true, never before.
+  useEffect(() => {
+    if (!migrationsReady) return;
+    if (!hasActiveSemester && !onOnboardingScreen) {
+      router.replace("/onboarding/primer-semestre");
+    } else if (hasActiveSemester && onOnboardingScreen) {
+      router.replace("/(tabs)");
+    }
+  }, [migrationsReady, hasActiveSemester, onOnboardingScreen]);
+
   if (error) {
     return (
       <View style={styles.center}>
@@ -46,19 +86,12 @@ export default function RootLayout() {
     );
   }
 
-  if (!success || updatedAt === undefined) {
+  if (!migrationsReady) {
     return (
       <View style={styles.center}>
         <Text>Preparando la base de datos…</Text>
       </View>
     );
-  }
-
-  const hasActiveSemester = activeSemesters.length > 0;
-  const onOnboardingScreen = pathname.startsWith("/onboarding");
-
-  if (!hasActiveSemester && !onOnboardingScreen) {
-    return <Redirect href="/onboarding/primer-semestre" />;
   }
 
   return <Stack screenOptions={{ headerShown: false }} />;
