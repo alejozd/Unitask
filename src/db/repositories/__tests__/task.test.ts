@@ -7,6 +7,7 @@ import * as schema from "@/db/schema";
 import { semesters } from "@/db/schema/semester";
 import { subjects } from "@/db/schema/subject";
 import { subtasks } from "@/db/schema/subtask";
+import { reminders } from "@/db/schema/reminder";
 import { SemesterReadOnlyError } from "@/db/repositories/subject";
 import {
   completeTaskAction,
@@ -15,6 +16,10 @@ import {
   getTask,
   updateTask,
 } from "@/db/repositories/task";
+import * as notifications from "@/lib/notifications";
+
+jest.mock("@/lib/notifications");
+const mockedNotifications = jest.mocked(notifications);
 
 function freshTestDb() {
   const sqlite = new Database(":memory:");
@@ -63,6 +68,19 @@ async function seedClosedSemesterWithSubject(db: ReturnType<typeof freshTestDb>)
 }
 
 const future = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7); // 1 week from now
+
+let notificationCounter = 0;
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  notificationCounter = 0;
+  mockedNotifications.requestNotificationPermission.mockResolvedValue({ granted: true });
+  mockedNotifications.scheduleReminderNotification.mockImplementation(async () => {
+    notificationCounter += 1;
+    return `mock-notification-${notificationCounter}`;
+  });
+  mockedNotifications.cancelReminderNotification.mockResolvedValue(undefined);
+});
 
 describe("task repository", () => {
   it("creates a task with initial subtasks", async () => {
@@ -265,5 +283,127 @@ describe("task repository", () => {
     await db.update(semesters).set({ status: "closed", closedAt: new Date() });
 
     await expect(completeTaskAction(task.id, db)).rejects.toThrow(SemesterReadOnlyError);
+  });
+
+  it("creates a task with reminders and schedules them", async () => {
+    const db = freshTestDb();
+    const { subjectId } = await seedActiveSemesterWithSubject(db);
+
+    const task = await createTask(
+      {
+        title: "Tarea con recordatorio",
+        subjectId,
+        dueDateTime: future,
+        priority: "Media",
+        reminderSpecs: [{ kind: "relative", offsetValue: 1, offsetUnit: "days" }],
+      },
+      db,
+    );
+
+    const rows = await db.select().from(reminders).where(eq(reminders.taskId, task.id));
+    expect(rows).toHaveLength(1);
+    expect(rows[0].notificationId).toBe("mock-notification-1");
+  });
+
+  it("creates a task with zero reminders when reminderSpecs is omitted", async () => {
+    const db = freshTestDb();
+    const { subjectId } = await seedActiveSemesterWithSubject(db);
+
+    const task = await createTask(
+      { title: "Tarea sin recordatorio", subjectId, dueDateTime: future, priority: "Media" },
+      db,
+    );
+
+    const rows = await db.select().from(reminders).where(eq(reminders.taskId, task.id));
+    expect(rows).toHaveLength(0);
+  });
+
+  it("completing a task cancels its pending reminders", async () => {
+    const db = freshTestDb();
+    const { subjectId } = await seedActiveSemesterWithSubject(db);
+    const task = await createTask(
+      {
+        title: "Tarea",
+        subjectId,
+        dueDateTime: future,
+        priority: "Media",
+        reminderSpecs: [{ kind: "relative", offsetValue: 1, offsetUnit: "days" }],
+      },
+      db,
+    );
+
+    await completeTaskAction(task.id, db);
+
+    expect(mockedNotifications.cancelReminderNotification).toHaveBeenCalledWith(
+      "mock-notification-1",
+    );
+    const [reminder] = await db.select().from(reminders).where(eq(reminders.taskId, task.id));
+    expect(reminder.notificationId).toBeNull();
+  });
+
+  it("deleting a task cancels its pending reminders", async () => {
+    const db = freshTestDb();
+    const { subjectId } = await seedActiveSemesterWithSubject(db);
+    const task = await createTask(
+      {
+        title: "Tarea",
+        subjectId,
+        dueDateTime: future,
+        priority: "Media",
+        reminderSpecs: [{ kind: "relative", offsetValue: 1, offsetUnit: "days" }],
+      },
+      db,
+    );
+
+    await deleteTask(task.id, db);
+
+    expect(mockedNotifications.cancelReminderNotification).toHaveBeenCalledWith(
+      "mock-notification-1",
+    );
+  });
+
+  it("updating a task's due date reschedules its reminders and reports how many were removed", async () => {
+    const db = freshTestDb();
+    const { subjectId } = await seedActiveSemesterWithSubject(db);
+    const task = await createTask(
+      {
+        title: "Tarea",
+        subjectId,
+        dueDateTime: future,
+        priority: "Media",
+        reminderSpecs: [{ kind: "relative", offsetValue: 1, offsetUnit: "days" }],
+      },
+      db,
+    );
+
+    // New due date 30 minutes out — the "1 día antes" reminder can no
+    // longer fire in the future, so it should be auto-removed.
+    const soonDueDate = new Date(Date.now() + 1000 * 60 * 30);
+    const result = await updateTask(task.id, { dueDateTime: soonDueDate }, db);
+
+    expect(result.remindersRemoved).toBe(1);
+    const rows = await db.select().from(reminders).where(eq(reminders.taskId, task.id));
+    expect(rows).toHaveLength(0);
+  });
+
+  it("updating a task without changing its due date does not touch reminders", async () => {
+    const db = freshTestDb();
+    const { subjectId } = await seedActiveSemesterWithSubject(db);
+    const task = await createTask(
+      {
+        title: "Tarea",
+        subjectId,
+        dueDateTime: future,
+        priority: "Media",
+        reminderSpecs: [{ kind: "relative", offsetValue: 1, offsetUnit: "days" }],
+      },
+      db,
+    );
+    mockedNotifications.cancelReminderNotification.mockClear();
+
+    const result = await updateTask(task.id, { title: "Título editado" }, db);
+
+    expect(result.remindersRemoved).toBe(0);
+    expect(mockedNotifications.cancelReminderNotification).not.toHaveBeenCalled();
   });
 });
