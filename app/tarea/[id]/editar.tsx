@@ -30,14 +30,22 @@ export default function EditarTareaScreen() {
 
   async function handleSubmit(values: TaskFormValues) {
     try {
-      await updateTask(id, {
+      const result = await updateTask(id, {
         title: values.title,
         description: values.description || null,
         subjectId: values.subjectId,
         dueDateTime: combineDateAndTime(values.dueDate, values.dueTime),
         priority: values.priority,
       });
-      router.back();
+      if (result.remindersRemoved > 0) {
+        Alert.alert(
+          "Recordatorios actualizados",
+          `${result.remindersRemoved} recordatorio(s) se eliminaron porque ya no tienen sentido con la nueva fecha límite.`,
+          [{ text: "OK", onPress: () => router.back() }],
+        );
+      } else {
+        router.back();
+      }
     } catch (error) {
       if (error instanceof SemesterReadOnlyError) {
         Alert.alert("Semestre cerrado", "Este semestre está cerrado y no se puede editar.");
