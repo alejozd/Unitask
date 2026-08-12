@@ -1,7 +1,7 @@
-import { PLACEHOLDER_TOKEN } from "@/theme";
+import { colors } from "@/theme";
 
 describe("path alias", () => {
   it("resolves @/ to src/", () => {
-    expect(PLACEHOLDER_TOKEN).toBe("unitask");
+    expect(colors.primary).toBe("#6366F1");
   });
 });
