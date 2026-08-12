@@ -72,16 +72,21 @@ export default function NuevaTareaScreen() {
     // subject to assign the task to, so send them to create one instead
     // of rendering a form with an empty, unusable subject picker.
     return (
-      <SafeAreaView style={styles.center} edges={["top"]}>
-        <Text style={styles.emptyText}>
-          Necesitas al menos una materia antes de crear una tarea.
-        </Text>
-        <TouchableOpacity
-          style={styles.emptyButton}
-          onPress={() => router.replace("/materia/nueva")}
-        >
-          <Text style={styles.emptyButtonText}>Crear materia</Text>
+      <SafeAreaView style={styles.container} edges={["top"]}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Text style={styles.backButtonText}>← Volver</Text>
         </TouchableOpacity>
+        <View style={styles.center}>
+          <Text style={styles.emptyText}>
+            Necesitas al menos una materia antes de crear una tarea.
+          </Text>
+          <TouchableOpacity
+            style={styles.emptyButton}
+            onPress={() => router.replace("/materia/nueva")}
+          >
+            <Text style={styles.emptyButtonText}>Crear materia</Text>
+          </TouchableOpacity>
+        </View>
       </SafeAreaView>
     );
   }
