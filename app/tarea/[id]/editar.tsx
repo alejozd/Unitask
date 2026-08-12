@@ -16,12 +16,7 @@ import { combineDateAndTime, type TaskFormValues } from "@/validation/task";
 
 export default function EditarTareaScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  // `updatedAt !== undefined` is the "this query has resolved at least
-  // once" signal (see app/_layout.tsx's top comment) — using it instead of
-  // just `!task` distinguishes "still loading" from "genuinely not found".
-  const { data: taskRows, updatedAt: taskUpdatedAt } = useLiveQuery(
-    db.select().from(tasks).where(eq(tasks.id, id)),
-  );
+  const { data: taskRows } = useLiveQuery(db.select().from(tasks).where(eq(tasks.id, id)));
   const task = taskRows?.[0];
 
   const { data: activeSemesterRows } = useLiveQuery(
@@ -52,7 +47,7 @@ export default function EditarTareaScreen() {
     }
   }
 
-  if (taskUpdatedAt === undefined || !task) {
+  if (!task) {
     return (
       <SafeAreaView style={styles.center} edges={["top"]}>
         <Text>Cargando…</Text>

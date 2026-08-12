@@ -7,6 +7,7 @@ export const colors = {
   textMuted: "#64748B",
   border: "#E2E8F0",
   primary: "#6366F1",
+  primaryTint: "rgba(99, 102, 241, 0.12)",
   danger: "#EF4444",
 } as const;
 

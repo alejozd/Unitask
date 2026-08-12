@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
   subjectChipSelected: {
     borderColor: colors.primary,
     borderWidth: 2,
-    backgroundColor: "rgba(99, 102, 241, 0.12)",
+    backgroundColor: colors.primaryTint,
     opacity: 1,
   },
   subjectDot: { width: 10, height: 10, borderRadius: 5 },

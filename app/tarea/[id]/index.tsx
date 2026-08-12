@@ -32,12 +32,7 @@ function handleActionError(error: unknown, fallbackMessage: string) {
 
 export default function DetalleDeTareaScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  // `updatedAt !== undefined` is the "this query has resolved at least
-  // once" signal (see app/_layout.tsx's top comment) — using it instead of
-  // just `!task` distinguishes "still loading" from "genuinely not found".
-  const { data: taskRows, updatedAt: taskUpdatedAt } = useLiveQuery(
-    db.select().from(tasks).where(eq(tasks.id, id)),
-  );
+  const { data: taskRows } = useLiveQuery(db.select().from(tasks).where(eq(tasks.id, id)));
   const task = taskRows?.[0];
   // Deliberately NOT `.where(eq(subjects.id, task?.subjectId ?? ""))`: that
   // WHERE clause's value would depend on another useLiveQuery's still-
@@ -130,7 +125,10 @@ export default function DetalleDeTareaScreen() {
 
   async function handleRenameSubtask(subtaskId: string, newText: string) {
     const trimmed = newText.trim();
-    if (!trimmed) return;
+    if (!trimmed) {
+      handleCancelEditSubtask();
+      return;
+    }
     setBusy(true);
     try {
       await updateSubtaskText(subtaskId, trimmed);
@@ -164,7 +162,7 @@ export default function DetalleDeTareaScreen() {
     ]);
   }
 
-  if (taskUpdatedAt === undefined || !task) {
+  if (!task) {
     return (
       <SafeAreaView style={styles.center} edges={["top"]}>
         <Text>Cargando…</Text>
@@ -214,65 +212,73 @@ export default function DetalleDeTareaScreen() {
       </TouchableOpacity>
 
       <Text style={styles.sectionTitle}>Subtareas</Text>
-      {taskSubtasks.map((subtask, index) => (
-        <View key={subtask.id} style={styles.subtaskRow}>
-          <TouchableOpacity
-            style={styles.subtaskCheckbox}
-            disabled={busy}
-            onPress={() => handleToggleSubtask(subtask.id, !subtask.completed)}
-          >
-            <Text style={styles.subtaskCheckboxText}>{subtask.completed ? "✓" : "○"}</Text>
-          </TouchableOpacity>
-          {editingSubtaskId === subtask.id ? (
-            <TextInput
-              style={styles.subtaskInput}
-              value={editingText}
-              onChangeText={setEditingText}
-              onSubmitEditing={() => handleRenameSubtask(subtask.id, editingText)}
-              autoFocus
-            />
-          ) : (
-            <Text style={[styles.subtaskText, subtask.completed && styles.subtaskTextCompleted]}>
-              {subtask.text}
-            </Text>
-          )}
-          <TouchableOpacity
-            disabled={busy || index === 0}
-            onPress={() => handleMoveSubtask(subtask.id, "up")}
-          >
-            <Text style={styles.subtaskAction}>↑</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            disabled={busy || index === taskSubtasks.length - 1}
-            onPress={() => handleMoveSubtask(subtask.id, "down")}
-          >
-            <Text style={styles.subtaskAction}>↓</Text>
-          </TouchableOpacity>
-          {editingSubtaskId === subtask.id ? (
-            <>
-              <TouchableOpacity
-                disabled={busy}
-                onPress={() => handleRenameSubtask(subtask.id, editingText)}
-              >
-                <Text style={styles.subtaskEdit}>Guardar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity disabled={busy} onPress={handleCancelEditSubtask}>
-                <Text style={styles.subtaskCancel}>Cancelar</Text>
-              </TouchableOpacity>
-            </>
-          ) : (
+      {taskSubtasks.map((subtask, index) => {
+        const isEditing = editingSubtaskId === subtask.id;
+        return (
+          <View key={subtask.id} style={styles.subtaskRow}>
             <TouchableOpacity
+              style={styles.subtaskCheckbox}
               disabled={busy}
-              onPress={() => handleStartEditSubtask(subtask.id, subtask.text)}
+              onPress={() => handleToggleSubtask(subtask.id, !subtask.completed)}
             >
-              <Text style={styles.subtaskEdit}>Editar</Text>
+              <Text style={styles.subtaskCheckboxText}>{subtask.completed ? "✓" : "○"}</Text>
             </TouchableOpacity>
-          )}
-          <TouchableOpacity disabled={busy} onPress={() => handleRemoveSubtask(subtask.id)}>
-            <Text style={styles.subtaskRemove}>Quitar</Text>
-          </TouchableOpacity>
-        </View>
-      ))}
+            {isEditing ? (
+              // Own column so the input gets the row's full remaining width
+              // instead of squeezing next to five sibling action buttons.
+              <View style={styles.subtaskEditColumn}>
+                <TextInput
+                  style={styles.subtaskInput}
+                  value={editingText}
+                  onChangeText={setEditingText}
+                  onSubmitEditing={() => handleRenameSubtask(subtask.id, editingText)}
+                  autoFocus
+                />
+                <View style={styles.subtaskEditActions}>
+                  <TouchableOpacity
+                    disabled={busy}
+                    onPress={() => handleRenameSubtask(subtask.id, editingText)}
+                  >
+                    <Text style={styles.subtaskEdit}>Guardar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity disabled={busy} onPress={handleCancelEditSubtask}>
+                    <Text style={styles.subtaskCancel}>Cancelar</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <>
+                <Text
+                  style={[styles.subtaskText, subtask.completed && styles.subtaskTextCompleted]}
+                >
+                  {subtask.text}
+                </Text>
+                <TouchableOpacity
+                  disabled={busy || index === 0}
+                  onPress={() => handleMoveSubtask(subtask.id, "up")}
+                >
+                  <Text style={styles.subtaskAction}>↑</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  disabled={busy || index === taskSubtasks.length - 1}
+                  onPress={() => handleMoveSubtask(subtask.id, "down")}
+                >
+                  <Text style={styles.subtaskAction}>↓</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  disabled={busy}
+                  onPress={() => handleStartEditSubtask(subtask.id, subtask.text)}
+                >
+                  <Text style={styles.subtaskEdit}>Editar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity disabled={busy} onPress={() => handleRemoveSubtask(subtask.id)}>
+                  <Text style={styles.subtaskRemove}>Quitar</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        );
+      })}
       <View style={styles.subtaskInputRow}>
         <TextInput
           style={styles.subtaskInput}
@@ -350,6 +356,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   subtaskCheckboxText: { fontSize: 13, color: colors.primary, fontWeight: "700" },
+  subtaskEditColumn: { flex: 1, gap: 6 },
+  subtaskEditActions: { flexDirection: "row", gap: 16, justifyContent: "flex-end" },
   subtaskText: { flex: 1, fontSize: 14, color: colors.text },
   subtaskTextCompleted: { textDecorationLine: "line-through", color: colors.textMuted },
   subtaskAction: { fontSize: 16, color: colors.primary, paddingHorizontal: 4 },
