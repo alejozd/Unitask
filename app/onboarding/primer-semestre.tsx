@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   StyleSheet,
   Text,
   TextInput,
@@ -30,9 +31,9 @@ export default function PrimerSemestreScreen() {
       // in the `submitting` state (spinner visible) until the root layout
       // unmounts this screen for us; only clear it below if the write
       // itself failed.
-    } catch (err) {
+    } catch {
       setSubmitting(false);
-      throw err;
+      Alert.alert("Error", "No se pudo crear el semestre. Inténtalo de nuevo.");
     }
   }
 

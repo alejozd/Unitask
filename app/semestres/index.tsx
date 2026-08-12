@@ -1,6 +1,8 @@
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
+import { router } from "expo-router";
 import { useState } from "react";
 import { Alert, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { db } from "@/db/client";
 import { closeSemester, createSemester } from "@/db/repositories/semester";
@@ -22,15 +24,22 @@ export default function SemestresScreen() {
     try {
       await createSemester(trimmed);
       setNewLabel("");
+    } catch {
+      Alert.alert("Error", "No se pudo crear el semestre.");
     } finally {
       setBusy(false);
     }
   }
 
   function handleClosePress(id: string) {
+    const activeCount = (semesterList ?? []).filter((s) => s.status === "active").length;
+    const isLastActive = activeCount <= 1;
+
     Alert.alert(
       "Cerrar semestre",
-      "El semestre y todo lo que contiene (materias, tareas) pasará a ser de solo lectura.",
+      isLastActive
+        ? "El semestre y todo lo que contiene (materias, tareas) pasará a ser de solo lectura. Es tu único semestre activo: al cerrarlo, deberás crear uno nuevo de inmediato para seguir usando la app."
+        : "El semestre y todo lo que contiene (materias, tareas) pasará a ser de solo lectura.",
       [
         { text: "Cancelar", style: "cancel" },
         {
@@ -40,6 +49,8 @@ export default function SemestresScreen() {
             setBusy(true);
             try {
               await closeSemester(id);
+            } catch {
+              Alert.alert("Error", "No se pudo cerrar el semestre.");
             } finally {
               setBusy(false);
             }
@@ -50,7 +61,10 @@ export default function SemestresScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <Text style={styles.backButtonText}>← Volver</Text>
+      </TouchableOpacity>
       <Text style={styles.title}>Semestres</Text>
 
       <FlatList
@@ -89,12 +103,14 @@ export default function SemestresScreen() {
           <Text style={styles.createButtonText}>Crear</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, gap: 12 },
+  backButton: { alignSelf: "flex-start" },
+  backButtonText: { color: colors.primary, fontSize: 15, fontWeight: "600" },
   title: { fontSize: 22, fontWeight: "700", color: colors.text },
   list: { gap: 12, paddingVertical: 8 },
   card: {

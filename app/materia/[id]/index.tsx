@@ -3,10 +3,15 @@ import { eq } from "drizzle-orm";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { db } from "@/db/client";
 import { subjects } from "@/db/schema/subject";
-import { SubjectDeletionBlockedError, deleteSubject } from "@/db/repositories/subject";
+import {
+  SemesterReadOnlyError,
+  SubjectDeletionBlockedError,
+  deleteSubject,
+} from "@/db/repositories/subject";
 import { colors, subjectPalette } from "@/theme";
 
 export default function DetalleDeMateriaScreen() {
@@ -32,6 +37,11 @@ export default function DetalleDeMateriaScreen() {
                 "No se puede eliminar",
                 `Hay ${error.blockingTaskCount} tarea(s) pendiente(s) o en progreso. Complétalas, elimínalas o reasígnalas a otra materia antes de eliminar esta.`,
               );
+            } else if (error instanceof SemesterReadOnlyError) {
+              Alert.alert(
+                "Semestre cerrado",
+                "Este semestre está cerrado y no se puede eliminar la materia.",
+              );
             } else {
               Alert.alert("Error", "No se pudo eliminar la materia.");
             }
@@ -45,14 +55,17 @@ export default function DetalleDeMateriaScreen() {
 
   if (!subject) {
     return (
-      <View style={styles.center}>
+      <SafeAreaView style={styles.center} edges={["top"]}>
         <Text>Cargando…</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <Text style={styles.backButtonText}>← Volver</Text>
+      </TouchableOpacity>
       <View style={styles.headerRow}>
         <View style={[styles.colorDot, { backgroundColor: subjectPalette[subject.color] }]} />
         <Text style={styles.title}>{subject.name}</Text>
@@ -77,13 +90,15 @@ export default function DetalleDeMateriaScreen() {
           <Text style={styles.deleteButtonText}>Eliminar materia</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, gap: 12 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  backButton: { alignSelf: "flex-start" },
+  backButtonText: { color: colors.primary, fontSize: 15, fontWeight: "600" },
   headerRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   colorDot: { width: 16, height: 16, borderRadius: 8 },
   title: { fontSize: 22, fontWeight: "700", color: colors.text },

@@ -14,10 +14,16 @@ export default function MateriasScreen() {
   );
   const activeSemesterId = activeSemesterRows?.[0]?.id;
 
-  const { data: subjectRows } = useLiveQuery(db.select().from(subjects).orderBy(subjects.name));
-  const subjectList = (subjectRows ?? []).filter(
-    (subject) => subject.semesterId === activeSemesterId,
-  );
+  // No `.orderBy()` here: SQLite's default BINARY collation sorts accented
+  // characters (e.g. "Á") after unaccented later-alphabet letters (e.g.
+  // "Z"), which is wrong for Spanish subject names. The repository layer
+  // fixes this with `localeCompare(..., "es")`, but `useLiveQuery` needs a
+  // reactive query object (Rule 1), not an async repository call — so the
+  // same locale-aware sort is applied here in JS instead, after filtering.
+  const { data: subjectRows } = useLiveQuery(db.select().from(subjects));
+  const subjectList = (subjectRows ?? [])
+    .filter((subject) => subject.semesterId === activeSemesterId)
+    .sort((a, b) => a.name.localeCompare(b.name, "es"));
 
   return (
     <View style={styles.container}>

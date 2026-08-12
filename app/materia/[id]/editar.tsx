@@ -1,12 +1,14 @@
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { eq } from "drizzle-orm";
 import { router, useLocalSearchParams } from "expo-router";
-import { StyleSheet, Text, View } from "react-native";
+import { Alert, StyleSheet, Text, TouchableOpacity } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { SubjectForm } from "@/components/SubjectForm";
 import { db } from "@/db/client";
 import { subjects } from "@/db/schema/subject";
-import { updateSubject } from "@/db/repositories/subject";
+import { updateSubject, SemesterReadOnlyError } from "@/db/repositories/subject";
+import { colors } from "@/theme";
 import type { SubjectFormValues } from "@/validation/subject";
 
 export default function EditarMateriaScreen() {
@@ -15,25 +17,36 @@ export default function EditarMateriaScreen() {
   const subject = rows?.[0];
 
   async function handleSubmit(values: SubjectFormValues) {
-    await updateSubject(id, {
-      name: values.name,
-      courseCode: values.courseCode || null,
-      professorName: values.professorName || null,
-      color: values.color,
-    });
-    router.back();
+    try {
+      await updateSubject(id, {
+        name: values.name,
+        courseCode: values.courseCode || null,
+        professorName: values.professorName || null,
+        color: values.color,
+      });
+      router.back();
+    } catch (error) {
+      if (error instanceof SemesterReadOnlyError) {
+        Alert.alert("Semestre cerrado", "Este semestre está cerrado y no se puede editar.");
+      } else {
+        Alert.alert("Error", "No se pudo guardar los cambios.");
+      }
+    }
   }
 
   if (!subject) {
     return (
-      <View style={styles.center}>
+      <SafeAreaView style={styles.center} edges={["top"]}>
         <Text>Cargando…</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <Text style={styles.backButtonText}>← Volver</Text>
+      </TouchableOpacity>
       <SubjectForm
         submitLabel="Guardar cambios"
         initialValues={{
@@ -44,11 +57,13 @@ export default function EditarMateriaScreen() {
         }}
         onSubmit={handleSubmit}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  backButton: { paddingHorizontal: 20, paddingTop: 12 },
+  backButtonText: { color: colors.primary, fontSize: 15, fontWeight: "600" },
 });

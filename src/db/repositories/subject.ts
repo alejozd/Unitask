@@ -151,6 +151,11 @@ export async function deleteSubject(id: string, database: Database = defaultDb):
   await database.delete(subjects).where(eq(subjects.id, id));
 }
 
+// Referenced only by tests and potential future CLI/tooling use — no screen
+// consumes this. Screens read subjects reactively via `useLiveQuery(db.select()...)`
+// directly in the component (Rule 1, docs/07-architecture.md), since
+// `useLiveQuery` needs a reactive query object, not an async function call.
+// Do not "fix" a screen to route through this instead.
 export async function getSubject(
   id: string,
   database: Database = defaultDb,
@@ -159,6 +164,11 @@ export async function getSubject(
   return rows[0];
 }
 
+// Referenced only by tests and potential future CLI/tooling use — no screen
+// consumes this. Screens read subjects reactively via `useLiveQuery(db.select()...)`
+// directly in the component (Rule 1, docs/07-architecture.md), since
+// `useLiveQuery` needs a reactive query object, not an async function call.
+// Do not "fix" a screen to route through this instead.
 export async function listSubjectsForSemesterQuery(
   semesterId: string,
   database: Database = defaultDb,

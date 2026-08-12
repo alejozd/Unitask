@@ -1,3 +1,5 @@
+import { SUBJECT_COLORS } from "@/db/schema/subject";
+
 export const colors = {
   background: "#F8FAFC",
   surface: "#FFFFFF",
@@ -13,7 +15,7 @@ export const colors = {
  * §8) — keyed by the same enum strings stored in the `subjects.color`
  * column (src/db/schema/subject.ts SUBJECT_COLORS).
  */
-export const subjectPalette: Record<string, string> = {
+export const subjectPalette: Record<(typeof SUBJECT_COLORS)[number], string> = {
   indigo: "#6366F1",
   emerald: "#10B981",
   amber: "#F59E0B",
@@ -24,4 +26,4 @@ export const subjectPalette: Record<string, string> = {
   fuchsia: "#EC4899",
   cyan: "#06B6D4",
   slate: "#64748B",
-} as const;
+};
