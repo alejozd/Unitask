@@ -4,17 +4,10 @@
     "strict": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": [
-        "src/*"
-      ]
+      "@/*": ["src/*"]
     },
     "ignoreDeprecations": "6.0",
-    "types": [
-      "jest"
-    ]
+    "types": ["jest"]
   },
-  "include": [
-    "**/*.ts",
-    "**/*.tsx"
-  ]
+  "include": ["**/*.ts", "**/*.tsx"]
 }
