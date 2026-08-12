@@ -5,6 +5,7 @@ import { useState, type ReactNode } from "react";
 import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { ReminderPicker, formatReminderSpec } from "@/components/ReminderPicker";
 import { TaskForm, type TaskFormSubjectOption } from "@/components/TaskForm";
 import { db } from "@/db/client";
 import { getActiveSemester } from "@/db/repositories/semester";
@@ -12,6 +13,7 @@ import { SemesterReadOnlyError } from "@/db/repositories/subject";
 import { createTask } from "@/db/repositories/task";
 import { semesters } from "@/db/schema/semester";
 import { subjects } from "@/db/schema/subject";
+import { defaultReminder, type ReminderSpec } from "@/domain/reminder-scheduling";
 import { colors } from "@/theme";
 import { combineDateAndTime, type TaskFormValues } from "@/validation/task";
 
@@ -37,6 +39,7 @@ export default function NuevaTareaScreen() {
 
   const [subtaskTexts, setSubtaskTexts] = useState<string[]>([]);
   const [newSubtaskText, setNewSubtaskText] = useState("");
+  const [reminderSpecs, setReminderSpecs] = useState<ReminderSpec[]>([defaultReminder()]);
 
   function handleAddSubtaskDraft() {
     const trimmed = newSubtaskText.trim();
@@ -47,6 +50,14 @@ export default function NuevaTareaScreen() {
 
   function handleRemoveSubtaskDraft(index: number) {
     setSubtaskTexts((current) => current.filter((_, i) => i !== index));
+  }
+
+  function handleAddReminderDraft(spec: ReminderSpec) {
+    setReminderSpecs((current) => [...current, spec]);
+  }
+
+  function handleRemoveReminderDraft(index: number) {
+    setReminderSpecs((current) => current.filter((_, i) => i !== index));
   }
 
   async function handleSubmit(values: TaskFormValues) {
@@ -64,6 +75,7 @@ export default function NuevaTareaScreen() {
         dueDateTime: combineDateAndTime(values.dueDate, values.dueTime),
         priority: values.priority,
         subtaskTexts,
+        reminderSpecs,
       });
       router.back();
     } catch (error) {
@@ -107,29 +119,44 @@ export default function NuevaTareaScreen() {
         submitLabel="Crear tarea"
         onSubmit={handleSubmit}
         footer={
-          <View style={styles.subtasksSection}>
-            <Text style={styles.subtasksTitle}>Subtareas iniciales (opcional)</Text>
-            {subtaskTexts.map((text, index) => (
-              <View key={`${text}-${index}`} style={styles.subtaskRow}>
-                <Text style={styles.subtaskText}>{text}</Text>
-                <TouchableOpacity onPress={() => handleRemoveSubtaskDraft(index)}>
-                  <Text style={styles.subtaskRemove}>Quitar</Text>
+          <>
+            <View style={styles.subtasksSection}>
+              <Text style={styles.subtasksTitle}>Subtareas iniciales (opcional)</Text>
+              {subtaskTexts.map((text, index) => (
+                <View key={`${text}-${index}`} style={styles.subtaskRow}>
+                  <Text style={styles.subtaskText}>{text}</Text>
+                  <TouchableOpacity onPress={() => handleRemoveSubtaskDraft(index)}>
+                    <Text style={styles.subtaskRemove}>Quitar</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+              <View style={styles.subtaskInputRow}>
+                <TextInput
+                  style={styles.subtaskInput}
+                  value={newSubtaskText}
+                  onChangeText={setNewSubtaskText}
+                  placeholder="Ej. Investigar fuentes"
+                  onSubmitEditing={handleAddSubtaskDraft}
+                />
+                <TouchableOpacity style={styles.subtaskAddButton} onPress={handleAddSubtaskDraft}>
+                  <Text style={styles.subtaskAddButtonText}>Añadir</Text>
                 </TouchableOpacity>
               </View>
-            ))}
-            <View style={styles.subtaskInputRow}>
-              <TextInput
-                style={styles.subtaskInput}
-                value={newSubtaskText}
-                onChangeText={setNewSubtaskText}
-                placeholder="Ej. Investigar fuentes"
-                onSubmitEditing={handleAddSubtaskDraft}
-              />
-              <TouchableOpacity style={styles.subtaskAddButton} onPress={handleAddSubtaskDraft}>
-                <Text style={styles.subtaskAddButtonText}>Añadir</Text>
-              </TouchableOpacity>
             </View>
-          </View>
+
+            <View style={styles.subtasksSection}>
+              <Text style={styles.subtasksTitle}>Recordatorios</Text>
+              {reminderSpecs.map((spec, index) => (
+                <View key={`${JSON.stringify(spec)}-${index}`} style={styles.subtaskRow}>
+                  <Text style={styles.subtaskText}>{formatReminderSpec(spec)}</Text>
+                  <TouchableOpacity onPress={() => handleRemoveReminderDraft(index)}>
+                    <Text style={styles.subtaskRemove}>Quitar</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+              <ReminderPicker onAdd={handleAddReminderDraft} />
+            </View>
+          </>
         }
       />
     );
