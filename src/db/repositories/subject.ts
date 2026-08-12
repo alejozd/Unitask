@@ -4,6 +4,7 @@ import { eq, inArray } from "drizzle-orm";
 import { db as defaultDb } from "@/db/client";
 import type { Database } from "@/db/repositories/semester";
 import { SemesterReadOnlyError } from "@/db/repositories/errors";
+import { cancelAllRemindersForTask } from "@/db/repositories/reminder";
 import { semesters } from "@/db/schema/semester";
 import { subjects, SUBJECT_COLORS, type Subject } from "@/db/schema/subject";
 import { subtasks } from "@/db/schema/subtask";
@@ -140,10 +141,19 @@ export async function deleteSubject(id: string, database: Database = defaultDb):
     throw new SubjectDeletionBlockedError(check.blockingTaskCount);
   }
 
-  // Any remaining (non-blocking) tasks and their subtasks/reminders/
-  // attachments cascade-delete automatically via ON DELETE CASCADE
-  // (Phase 1) now that PRAGMA foreign_keys=ON is active (this phase's
-  // Task 1) — no manual cleanup needed here.
+  // Cancel pending OS notifications for every task this deletion cascades
+  // away, BEFORE the cascade-delete removes their reminder rows. A task
+  // here can be Vencida (overdue but incomplete), which can still have a
+  // live pending reminder — only Completada tasks are guaranteed to have
+  // already had theirs cancelled, via completeTaskAction (Task 3).
+  for (const taskId of check.cascadeDeleteTaskIds ?? []) {
+    await cancelAllRemindersForTask(taskId, database);
+  }
+
+  // Subjects, their remaining (non-blocking) tasks, and those tasks'
+  // subtasks/reminders/attachments cascade-delete automatically via ON
+  // DELETE CASCADE (Phase 1) now that PRAGMA foreign_keys=ON is active
+  // (Phase 2 Task 1) — no manual row cleanup needed here.
   await database.delete(subjects).where(eq(subjects.id, id));
 }
 

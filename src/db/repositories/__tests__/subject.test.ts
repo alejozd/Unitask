@@ -6,6 +6,8 @@ import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import * as schema from "@/db/schema";
 import { semesters } from "@/db/schema/semester";
 import { tasks } from "@/db/schema/task";
+import { reminders } from "@/db/schema/reminder";
+import * as notifications from "@/lib/notifications";
 import {
   SemesterReadOnlyError,
   SubjectDeletionBlockedError,
@@ -15,6 +17,9 @@ import {
   listSubjectsForSemesterQuery,
   updateSubject,
 } from "@/db/repositories/subject";
+
+jest.mock("@/lib/notifications");
+const mockedNotifications = jest.mocked(notifications);
 
 function freshTestDb() {
   const sqlite = new Database(":memory:");
@@ -39,6 +44,10 @@ async function seedClosedSemester(db: ReturnType<typeof freshTestDb>) {
     .values({ id, label: "2025-2", status: "closed", createdAt: new Date(), closedAt: new Date() });
   return id;
 }
+
+beforeEach(() => {
+  jest.clearAllMocks();
+});
 
 describe("subject repository", () => {
   it("creates a subject under the given semester", async () => {
@@ -147,6 +156,43 @@ describe("subject repository", () => {
     await db.update(semesters).set({ status: "closed", closedAt: new Date() });
 
     await expect(deleteSubject(subject.id, db)).rejects.toThrow(SemesterReadOnlyError);
+  });
+
+  it("cancels pending reminder notifications for tasks a subject-deletion cascade removes", async () => {
+    const db = freshTestDb();
+    const semesterId = await seedActiveSemester(db);
+    const subject = await createSubject({ name: "Física", color: "sky", semesterId }, db);
+
+    // Overdue but NOT completed — Vencida, per 03-business-rules.md §1 —
+    // so checkSubjectDeletion allows the cascade (only Pendiente/En
+    // progreso blocks it), but the task's reminder is still pending.
+    await db.insert(tasks).values({
+      id: "task-vencida",
+      title: "Tarea vencida",
+      subjectId: subject.id,
+      dueDateTime: new Date(Date.now() - 1000 * 60 * 60 * 24), // yesterday
+      priority: "Media",
+      completed: false,
+      completedLate: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    await db.insert(reminders).values({
+      id: "reminder-1",
+      taskId: "task-vencida",
+      kind: "relative",
+      offsetValue: 1,
+      offsetUnit: "days",
+      computedFireAt: new Date(Date.now() - 1000 * 60 * 60 * 48),
+      notificationId: "mock-notification-pending",
+      createdAt: new Date(),
+    });
+
+    await deleteSubject(subject.id, db);
+
+    expect(mockedNotifications.cancelReminderNotification).toHaveBeenCalledWith(
+      "mock-notification-pending",
+    );
   });
 
   it("listSubjectsForSemesterQuery returns only that semester's subjects, alphabetically", async () => {
