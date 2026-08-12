@@ -13,6 +13,7 @@ import {
   deleteSubtask,
   moveSubtask,
   toggleSubtaskCompleted,
+  updateSubtaskText,
 } from "@/db/repositories/subtask";
 import { subjects } from "@/db/schema/subject";
 import { subtasks } from "@/db/schema/subtask";
@@ -31,7 +32,12 @@ function handleActionError(error: unknown, fallbackMessage: string) {
 
 export default function DetalleDeTareaScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: taskRows } = useLiveQuery(db.select().from(tasks).where(eq(tasks.id, id)));
+  // `updatedAt !== undefined` is the "this query has resolved at least
+  // once" signal (see app/_layout.tsx's top comment) — using it instead of
+  // just `!task` distinguishes "still loading" from "genuinely not found".
+  const { data: taskRows, updatedAt: taskUpdatedAt } = useLiveQuery(
+    db.select().from(tasks).where(eq(tasks.id, id)),
+  );
   const task = taskRows?.[0];
   // Deliberately NOT `.where(eq(subjects.id, task?.subjectId ?? ""))`: that
   // WHERE clause's value would depend on another useLiveQuery's still-
@@ -51,6 +57,8 @@ export default function DetalleDeTareaScreen() {
   const [newSubtaskText, setNewSubtaskText] = useState("");
   const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [editingSubtaskId, setEditingSubtaskId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState("");
 
   async function handleComplete() {
     setBusy(true);
@@ -110,6 +118,31 @@ export default function DetalleDeTareaScreen() {
     }
   }
 
+  function handleStartEditSubtask(subtaskId: string, currentText: string) {
+    setEditingSubtaskId(subtaskId);
+    setEditingText(currentText);
+  }
+
+  function handleCancelEditSubtask() {
+    setEditingSubtaskId(null);
+    setEditingText("");
+  }
+
+  async function handleRenameSubtask(subtaskId: string, newText: string) {
+    const trimmed = newText.trim();
+    if (!trimmed) return;
+    setBusy(true);
+    try {
+      await updateSubtaskText(subtaskId, trimmed);
+      setEditingSubtaskId(null);
+      setEditingText("");
+    } catch (error) {
+      handleActionError(error, "No se pudo renombrar la subtarea.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function handleDeletePress() {
     Alert.alert("Eliminar tarea", "Esta acción eliminará la tarea y sus subtareas.", [
       { text: "Cancelar", style: "cancel" },
@@ -131,7 +164,7 @@ export default function DetalleDeTareaScreen() {
     ]);
   }
 
-  if (!task) {
+  if (taskUpdatedAt === undefined || !task) {
     return (
       <SafeAreaView style={styles.center} edges={["top"]}>
         <Text>Cargando…</Text>
@@ -190,9 +223,19 @@ export default function DetalleDeTareaScreen() {
           >
             <Text style={styles.subtaskCheckboxText}>{subtask.completed ? "✓" : "○"}</Text>
           </TouchableOpacity>
-          <Text style={[styles.subtaskText, subtask.completed && styles.subtaskTextCompleted]}>
-            {subtask.text}
-          </Text>
+          {editingSubtaskId === subtask.id ? (
+            <TextInput
+              style={styles.subtaskInput}
+              value={editingText}
+              onChangeText={setEditingText}
+              onSubmitEditing={() => handleRenameSubtask(subtask.id, editingText)}
+              autoFocus
+            />
+          ) : (
+            <Text style={[styles.subtaskText, subtask.completed && styles.subtaskTextCompleted]}>
+              {subtask.text}
+            </Text>
+          )}
           <TouchableOpacity
             disabled={busy || index === 0}
             onPress={() => handleMoveSubtask(subtask.id, "up")}
@@ -205,6 +248,26 @@ export default function DetalleDeTareaScreen() {
           >
             <Text style={styles.subtaskAction}>↓</Text>
           </TouchableOpacity>
+          {editingSubtaskId === subtask.id ? (
+            <>
+              <TouchableOpacity
+                disabled={busy}
+                onPress={() => handleRenameSubtask(subtask.id, editingText)}
+              >
+                <Text style={styles.subtaskEdit}>Guardar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity disabled={busy} onPress={handleCancelEditSubtask}>
+                <Text style={styles.subtaskCancel}>Cancelar</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <TouchableOpacity
+              disabled={busy}
+              onPress={() => handleStartEditSubtask(subtask.id, subtask.text)}
+            >
+              <Text style={styles.subtaskEdit}>Editar</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity disabled={busy} onPress={() => handleRemoveSubtask(subtask.id)}>
             <Text style={styles.subtaskRemove}>Quitar</Text>
           </TouchableOpacity>
@@ -290,6 +353,8 @@ const styles = StyleSheet.create({
   subtaskText: { flex: 1, fontSize: 14, color: colors.text },
   subtaskTextCompleted: { textDecorationLine: "line-through", color: colors.textMuted },
   subtaskAction: { fontSize: 16, color: colors.primary, paddingHorizontal: 4 },
+  subtaskEdit: { color: colors.primary, fontSize: 12, fontWeight: "600" },
+  subtaskCancel: { color: colors.textMuted, fontSize: 12, fontWeight: "600" },
   subtaskRemove: { color: colors.danger, fontSize: 12, fontWeight: "600" },
   subtaskInputRow: { flexDirection: "row", gap: 8, marginTop: 12 },
   subtaskInput: {

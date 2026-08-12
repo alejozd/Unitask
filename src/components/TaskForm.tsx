@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Controller, useForm } from "react-hook-form";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -27,6 +27,8 @@ interface TaskFormProps {
   initialValues?: Partial<TaskFormValues>;
   submitLabel: string;
   onSubmit: (values: TaskFormValues) => Promise<void>;
+  /** Extra content rendered inside the scroll area, after Priority and before the submit button. */
+  footer?: ReactNode;
 }
 
 function formatDate(date: Date): string {
@@ -37,7 +39,13 @@ function formatTime(date: Date): string {
   return date.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" });
 }
 
-export function TaskForm({ subjects, initialValues, submitLabel, onSubmit }: TaskFormProps) {
+export function TaskForm({
+  subjects,
+  initialValues,
+  submitLabel,
+  onSubmit,
+  footer,
+}: TaskFormProps) {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
 
@@ -197,6 +205,8 @@ export function TaskForm({ subjects, initialValues, submitLabel, onSubmit }: Tas
         )}
       />
 
+      {footer}
+
       <TouchableOpacity
         style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
         onPress={handleSubmit(onSubmit)}
@@ -254,10 +264,13 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 8,
+    opacity: 0.55,
   },
   subjectChipSelected: {
     borderColor: colors.primary,
     borderWidth: 2,
+    backgroundColor: "rgba(99, 102, 241, 0.12)",
+    opacity: 1,
   },
   subjectDot: { width: 10, height: 10, borderRadius: 5 },
   subjectChipText: { fontSize: 14, color: colors.text },

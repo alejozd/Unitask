@@ -169,4 +169,38 @@ describe("subtask repository", () => {
     expect(byId[first.id]).toBe(1);
     expect(byId[second.id]).toBe(0);
   });
+
+  it("moving the last subtask down is a no-op", async () => {
+    const db = freshTestDb();
+    const { task } = await seedTaskInActiveSemester(db);
+    const first = await addSubtask(task.id, "Uno", db);
+    const second = await addSubtask(task.id, "Dos", db);
+
+    await moveSubtask(second.id, "down", db);
+
+    const rows = await db.select().from(subtasks).where(eq(subtasks.taskId, task.id));
+    const byId = Object.fromEntries(rows.map((r) => [r.id, r.order]));
+    expect(byId[first.id]).toBe(0);
+    expect(byId[second.id]).toBe(1);
+  });
+
+  it("blocks updating a subtask's text under a closed semester", async () => {
+    const db = freshTestDb();
+    const { task } = await seedTaskInActiveSemester(db);
+    const subtask = await addSubtask(task.id, "Paso", db);
+    await db.update(semesters).set({ status: "closed", closedAt: new Date() });
+
+    await expect(updateSubtaskText(subtask.id, "New text", db)).rejects.toThrow(
+      SemesterReadOnlyError,
+    );
+  });
+
+  it("blocks moving a subtask under a closed semester", async () => {
+    const db = freshTestDb();
+    const { task } = await seedTaskInActiveSemester(db);
+    const subtask = await addSubtask(task.id, "Paso", db);
+    await db.update(semesters).set({ status: "closed", closedAt: new Date() });
+
+    await expect(moveSubtask(subtask.id, "up", db)).rejects.toThrow(SemesterReadOnlyError);
+  });
 });

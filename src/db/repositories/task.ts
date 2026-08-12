@@ -147,13 +147,14 @@ export async function completeTaskAction(
   const result = completeTask({
     dueDateTime: task.dueDateTime,
     subtasks: subtaskRows,
-    current: task.completed
-      ? {
-          completed: task.completed,
-          completedAt: task.completedAt as Date,
-          completedLate: task.completedLate,
-        }
-      : undefined,
+    current:
+      task.completed && task.completedAt
+        ? {
+            completed: task.completed,
+            completedAt: task.completedAt,
+            completedLate: task.completedLate,
+          }
+        : undefined,
   });
 
   await database.transaction((tx) => {

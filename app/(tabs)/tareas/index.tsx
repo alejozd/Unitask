@@ -23,12 +23,14 @@ export default function TareasScreen() {
   const [filter, setFilter] = useState<FilterChip>("Todas");
   const [completingId, setCompletingId] = useState<string | null>(null);
 
-  const { data: activeSemesterRows } = useLiveQuery(
+  const { data: activeSemesterRows, updatedAt: semesterUpdatedAt } = useLiveQuery(
     db.select({ id: semesters.id }).from(semesters).where(eq(semesters.status, "active")),
   );
   const activeSemesterId = activeSemesterRows?.[0]?.id;
 
-  const { data: subjectRows } = useLiveQuery(db.select().from(subjects));
+  const { data: subjectRows, updatedAt: subjectsUpdatedAt } = useLiveQuery(
+    db.select().from(subjects),
+  );
   const activeSubjectIds = new Set(
     (subjectRows ?? [])
       .filter((subject) => subject.semesterId === activeSemesterId)
@@ -36,8 +38,20 @@ export default function TareasScreen() {
   );
   const subjectsById = new Map((subjectRows ?? []).map((subject) => [subject.id, subject]));
 
-  const { data: taskRows } = useLiveQuery(db.select().from(tasks));
-  const { data: subtaskRows } = useLiveQuery(db.select().from(subtasks));
+  const { data: taskRows, updatedAt: tasksUpdatedAt } = useLiveQuery(db.select().from(tasks));
+  const { data: subtaskRows, updatedAt: subtasksUpdatedAt } = useLiveQuery(
+    db.select().from(subtasks),
+  );
+
+  // Same `updatedAt !== undefined` pattern as app/_layout.tsx — all 4
+  // queries must have resolved at least once before "no tasks match this
+  // filter" is a meaningful statement; otherwise the empty-filter message
+  // flashes on every fresh mount before the live queries settle.
+  const loaded =
+    semesterUpdatedAt !== undefined &&
+    subjectsUpdatedAt !== undefined &&
+    tasksUpdatedAt !== undefined &&
+    subtasksUpdatedAt !== undefined;
 
   // Tareas, like Materias, scopes to the active semester only — a closed
   // semester's tasks are historical/read-only and not part of "what do I
@@ -95,7 +109,11 @@ export default function TareasScreen() {
         ))}
       </View>
 
-      {visibleTasks.length === 0 ? (
+      {!loaded ? (
+        <View style={styles.empty}>
+          <Text style={styles.emptyText}>Cargando…</Text>
+        </View>
+      ) : visibleTasks.length === 0 ? (
         <View style={styles.empty}>
           <Text style={styles.emptyText}>No hay tareas en este filtro.</Text>
         </View>

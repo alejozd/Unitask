@@ -1,7 +1,7 @@
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { eq } from "drizzle-orm";
 import { router } from "expo-router";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -16,15 +16,24 @@ import { colors } from "@/theme";
 import { combineDateAndTime, type TaskFormValues } from "@/validation/task";
 
 export default function NuevaTareaScreen() {
-  const { data: activeSemesterRows } = useLiveQuery(
+  // Same `updatedAt !== undefined` pattern as app/_layout.tsx (see its
+  // top comment): `useLiveQuery`'s `data` starts as `[]`, not `undefined`,
+  // so `activeSubjects.length === 0` is only meaningful once BOTH queries
+  // below have resolved at least once — otherwise the empty-subjects
+  // screen flashes on every fresh navigation, even when subjects exist.
+  const { data: activeSemesterRows, updatedAt: semesterUpdatedAt } = useLiveQuery(
     db.select({ id: semesters.id }).from(semesters).where(eq(semesters.status, "active")),
   );
   const activeSemesterId = activeSemesterRows?.[0]?.id;
 
-  const { data: subjectRows } = useLiveQuery(db.select().from(subjects));
+  const { data: subjectRows, updatedAt: subjectsUpdatedAt } = useLiveQuery(
+    db.select().from(subjects),
+  );
   const activeSubjects = (subjectRows ?? [])
     .filter((subject) => subject.semesterId === activeSemesterId)
     .sort((a, b) => a.name.localeCompare(b.name, "es"));
+
+  const loaded = semesterUpdatedAt !== undefined && subjectsUpdatedAt !== undefined;
 
   const [subtaskTexts, setSubtaskTexts] = useState<string[]>([]);
   const [newSubtaskText, setNewSubtaskText] = useState("");
@@ -66,28 +75,63 @@ export default function NuevaTareaScreen() {
     }
   }
 
-  if (activeSubjects.length === 0) {
+  let content: ReactNode;
+  if (!loaded) {
+    content = (
+      <View style={styles.center}>
+        <Text>Cargando…</Text>
+      </View>
+    );
+  } else if (activeSubjects.length === 0) {
     // Mirrors 04-user-flows.md flow 2's "If the subject picker is empty,
     // the user is redirected to create a subject first" — there is no
     // subject to assign the task to, so send them to create one instead
     // of rendering a form with an empty, unusable subject picker.
-    return (
-      <SafeAreaView style={styles.container} edges={["top"]}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Text style={styles.backButtonText}>← Volver</Text>
+    content = (
+      <View style={styles.center}>
+        <Text style={styles.emptyText}>
+          Necesitas al menos una materia antes de crear una tarea.
+        </Text>
+        <TouchableOpacity
+          style={styles.emptyButton}
+          onPress={() => router.replace("/materia/nueva")}
+        >
+          <Text style={styles.emptyButtonText}>Crear materia</Text>
         </TouchableOpacity>
-        <View style={styles.center}>
-          <Text style={styles.emptyText}>
-            Necesitas al menos una materia antes de crear una tarea.
-          </Text>
-          <TouchableOpacity
-            style={styles.emptyButton}
-            onPress={() => router.replace("/materia/nueva")}
-          >
-            <Text style={styles.emptyButtonText}>Crear materia</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
+      </View>
+    );
+  } else {
+    content = (
+      <TaskForm
+        subjects={activeSubjects as TaskFormSubjectOption[]}
+        submitLabel="Crear tarea"
+        onSubmit={handleSubmit}
+        footer={
+          <View style={styles.subtasksSection}>
+            <Text style={styles.subtasksTitle}>Subtareas iniciales (opcional)</Text>
+            {subtaskTexts.map((text, index) => (
+              <View key={`${text}-${index}`} style={styles.subtaskRow}>
+                <Text style={styles.subtaskText}>{text}</Text>
+                <TouchableOpacity onPress={() => handleRemoveSubtaskDraft(index)}>
+                  <Text style={styles.subtaskRemove}>Quitar</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+            <View style={styles.subtaskInputRow}>
+              <TextInput
+                style={styles.subtaskInput}
+                value={newSubtaskText}
+                onChangeText={setNewSubtaskText}
+                placeholder="Ej. Investigar fuentes"
+                onSubmitEditing={handleAddSubtaskDraft}
+              />
+              <TouchableOpacity style={styles.subtaskAddButton} onPress={handleAddSubtaskDraft}>
+                <Text style={styles.subtaskAddButtonText}>Añadir</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        }
+      />
     );
   }
 
@@ -96,35 +140,7 @@ export default function NuevaTareaScreen() {
       <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
         <Text style={styles.backButtonText}>← Volver</Text>
       </TouchableOpacity>
-      <TaskForm
-        subjects={activeSubjects as TaskFormSubjectOption[]}
-        submitLabel="Crear tarea"
-        onSubmit={handleSubmit}
-      />
-
-      <View style={styles.subtasksSection}>
-        <Text style={styles.subtasksTitle}>Subtareas iniciales (opcional)</Text>
-        {subtaskTexts.map((text, index) => (
-          <View key={`${text}-${index}`} style={styles.subtaskRow}>
-            <Text style={styles.subtaskText}>{text}</Text>
-            <TouchableOpacity onPress={() => handleRemoveSubtaskDraft(index)}>
-              <Text style={styles.subtaskRemove}>Quitar</Text>
-            </TouchableOpacity>
-          </View>
-        ))}
-        <View style={styles.subtaskInputRow}>
-          <TextInput
-            style={styles.subtaskInput}
-            value={newSubtaskText}
-            onChangeText={setNewSubtaskText}
-            placeholder="Ej. Investigar fuentes"
-            onSubmitEditing={handleAddSubtaskDraft}
-          />
-          <TouchableOpacity style={styles.subtaskAddButton} onPress={handleAddSubtaskDraft}>
-            <Text style={styles.subtaskAddButtonText}>Añadir</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      {content}
     </SafeAreaView>
   );
 }
