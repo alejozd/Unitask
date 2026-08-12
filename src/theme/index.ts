@@ -27,3 +27,15 @@ export const subjectPalette: Record<(typeof SUBJECT_COLORS)[number], string> = {
   cyan: "#06B6D4",
   slate: "#64748B",
 };
+
+/**
+ * Task priority stripe/dot colors (03-business-rules.md, 06-data-model.md):
+ * High reuses `colors.danger` (the same red), Medium/Low are distinct from
+ * every subject-palette hue so a student never confuses "this task's
+ * priority" with "this subject's color" at a glance.
+ */
+export const priorityColors: Record<"Alta" | "Media" | "Baja", string> = {
+  Alta: colors.danger,
+  Media: "#F59E0B",
+  Baja: "#10B981",
+};

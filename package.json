@@ -4,6 +4,7 @@
   "main": "expo-router/entry",
   "dependencies": {
     "@hookform/resolvers": "^5.7.1",
+    "@react-native-community/datetimepicker": "9.1.0",
     "babel-preset-expo": "~57.0.0",
     "drizzle-orm": "^0.45.2",
     "expo": "~57.0.12",
