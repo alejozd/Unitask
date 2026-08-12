@@ -3,6 +3,7 @@ import { eq, inArray } from "drizzle-orm";
 
 import { db as defaultDb } from "@/db/client";
 import type { Database } from "@/db/repositories/semester";
+import { SemesterReadOnlyError } from "@/db/repositories/errors";
 import { semesters } from "@/db/schema/semester";
 import { subjects, SUBJECT_COLORS, type Subject } from "@/db/schema/subject";
 import { subtasks } from "@/db/schema/subtask";
@@ -14,12 +15,7 @@ import { checkSubjectDeletion } from "@/domain/subject-deletion";
 
 export type SubjectColor = (typeof SUBJECT_COLORS)[number];
 
-export class SemesterReadOnlyError extends Error {
-  constructor() {
-    super("No se puede modificar una materia de un semestre cerrado.");
-    this.name = "SemesterReadOnlyError";
-  }
-}
+export { SemesterReadOnlyError } from "@/db/repositories/errors";
 
 export class SubjectDeletionBlockedError extends Error {
   constructor(public blockingTaskCount: number) {

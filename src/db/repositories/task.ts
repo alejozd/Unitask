@@ -3,40 +3,12 @@ import { eq } from "drizzle-orm";
 
 import { db as defaultDb } from "@/db/client";
 import type { Database } from "@/db/repositories/semester";
-import { SemesterReadOnlyError } from "@/db/repositories/subject";
-import { semesters } from "@/db/schema/semester";
-import { subjects } from "@/db/schema/subject";
+import { assertSubjectEditable, assertTaskEditable } from "@/db/repositories/task-access";
 import { subtasks } from "@/db/schema/subtask";
 import { tasks, type Task } from "@/db/schema/task";
 import { completeTask } from "@/domain/task-completion";
-import { isSemesterReadOnly } from "@/domain/semester-lifecycle";
 
-async function assertSubjectEditable(subjectId: string, database: Database): Promise<void> {
-  const rows = await database
-    .select({ status: semesters.status })
-    .from(subjects)
-    .innerJoin(semesters, eq(subjects.semesterId, semesters.id))
-    .where(eq(subjects.id, subjectId))
-    .limit(1);
-  const row = rows[0];
-  if (!row || isSemesterReadOnly(row.status)) {
-    throw new SemesterReadOnlyError();
-  }
-}
-
-/**
- * The single place the "is this task's subject/semester open" check lives.
- * Exported so `subtask.ts` (Task 2 of this plan) reuses it instead of
- * re-implementing the same join — a subtask's edibility is always exactly
- * its parent task's editability.
- */
-export async function assertTaskEditable(taskId: string, database: Database): Promise<Task> {
-  const rows = await database.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
-  const task = rows[0];
-  if (!task) throw new Error(`Task not found: ${taskId}`);
-  await assertSubjectEditable(task.subjectId, database);
-  return task;
-}
+export { assertTaskEditable };
 
 export interface CreateTaskInput {
   title: string;
