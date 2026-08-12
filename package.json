@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "expo-router/entry",
   "dependencies": {
+    "@hookform/resolvers": "^5.7.1",
     "babel-preset-expo": "~57.0.0",
     "drizzle-orm": "^0.45.2",
     "expo": "~57.0.12",
@@ -15,9 +16,11 @@
     "expo-sqlite": "~57.0.1",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
+    "react-hook-form": "^7.85.0",
     "react-native": "0.86.2",
     "react-native-safe-area-context": "~5.7.0",
-    "react-native-screens": "~4.26.0"
+    "react-native-screens": "~4.26.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@expo/ngrok": "^4.1.3",
