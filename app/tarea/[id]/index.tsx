@@ -5,8 +5,10 @@ import { useState } from "react";
 import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { ReminderPicker, formatReminderSpec } from "@/components/ReminderPicker";
 import { db } from "@/db/client";
 import { deleteTask, completeTaskAction } from "@/db/repositories/task";
+import { addReminder, removeReminder } from "@/db/repositories/reminder";
 import { SemesterReadOnlyError } from "@/db/repositories/subject";
 import {
   addSubtask,
@@ -15,11 +17,13 @@ import {
   toggleSubtaskCompleted,
   updateSubtaskText,
 } from "@/db/repositories/subtask";
+import { reminders } from "@/db/schema/reminder";
 import { subjects } from "@/db/schema/subject";
 import { subtasks } from "@/db/schema/subtask";
 import { tasks } from "@/db/schema/task";
 import { calculateTaskProgress } from "@/domain/task-progress";
 import { deriveTaskStatus } from "@/domain/task-status";
+import type { ReminderSpec } from "@/domain/reminder-scheduling";
 import { colors, priorityColors, subjectPalette } from "@/theme";
 
 function handleActionError(error: unknown, fallbackMessage: string) {
@@ -48,6 +52,10 @@ export default function DetalleDeTareaScreen() {
     db.select().from(subtasks).where(eq(subtasks.taskId, id)),
   );
   const taskSubtasks = (subtaskRows ?? []).slice().sort((a, b) => a.order - b.order);
+  const { data: reminderRows } = useLiveQuery(
+    db.select().from(reminders).where(eq(reminders.taskId, id)),
+  );
+  const taskReminders = reminderRows ?? [];
 
   const [newSubtaskText, setNewSubtaskText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -136,6 +144,28 @@ export default function DetalleDeTareaScreen() {
       setEditingText("");
     } catch (error) {
       handleActionError(error, "No se pudo renombrar la subtarea.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleAddReminder(spec: ReminderSpec) {
+    setBusy(true);
+    try {
+      await addReminder(id, spec);
+    } catch (error) {
+      handleActionError(error, "No se pudo añadir el recordatorio.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleRemoveReminder(reminderId: string) {
+    setBusy(true);
+    try {
+      await removeReminder(reminderId);
+    } catch (error) {
+      handleActionError(error, "No se pudo eliminar el recordatorio.");
     } finally {
       setBusy(false);
     }
@@ -295,6 +325,28 @@ export default function DetalleDeTareaScreen() {
           <Text style={styles.subtaskAddButtonText}>Añadir</Text>
         </TouchableOpacity>
       </View>
+
+      <Text style={styles.sectionTitle}>Recordatorios</Text>
+      {taskReminders.map((reminder) => (
+        <View key={reminder.id} style={styles.subtaskRow}>
+          <Text style={styles.subtaskText}>
+            {formatReminderSpec(
+              reminder.kind === "fixed"
+                ? { kind: "fixed", fixedDateTime: reminder.fixedDateTime as Date }
+                : {
+                    kind: "relative",
+                    offsetValue: reminder.offsetValue as number,
+                    offsetUnit: reminder.offsetUnit as "minutes" | "hours" | "days",
+                  },
+            )}
+            {reminder.notificationId === null ? " (no programado)" : ""}
+          </Text>
+          <TouchableOpacity disabled={busy} onPress={() => handleRemoveReminder(reminder.id)}>
+            <Text style={styles.subtaskRemove}>Quitar</Text>
+          </TouchableOpacity>
+        </View>
+      ))}
+      <ReminderPicker onAdd={handleAddReminder} />
 
       <View style={styles.actions}>
         <TouchableOpacity
