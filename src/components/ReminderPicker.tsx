@@ -132,18 +132,17 @@ export function ReminderPicker({ onAdd }: ReminderPickerProps) {
               value={fixedDateTime}
               mode="date"
               display="default"
-              onChange={(_event, selectedDate) => {
+              onValueChange={(_event, selectedDate) => {
                 setShowDatePicker(false);
-                if (selectedDate) {
-                  const merged = new Date(fixedDateTime);
-                  merged.setFullYear(
-                    selectedDate.getFullYear(),
-                    selectedDate.getMonth(),
-                    selectedDate.getDate(),
-                  );
-                  setFixedDateTime(merged);
-                }
+                const merged = new Date(fixedDateTime);
+                merged.setFullYear(
+                  selectedDate.getFullYear(),
+                  selectedDate.getMonth(),
+                  selectedDate.getDate(),
+                );
+                setFixedDateTime(merged);
               }}
+              onDismiss={() => setShowDatePicker(false)}
             />
           )}
           {showTimePicker && (
@@ -151,14 +150,13 @@ export function ReminderPicker({ onAdd }: ReminderPickerProps) {
               value={fixedDateTime}
               mode="time"
               display="default"
-              onChange={(_event, selectedTime) => {
+              onValueChange={(_event, selectedTime) => {
                 setShowTimePicker(false);
-                if (selectedTime) {
-                  const merged = new Date(fixedDateTime);
-                  merged.setHours(selectedTime.getHours(), selectedTime.getMinutes(), 0, 0);
-                  setFixedDateTime(merged);
-                }
+                const merged = new Date(fixedDateTime);
+                merged.setHours(selectedTime.getHours(), selectedTime.getMinutes(), 0, 0);
+                setFixedDateTime(merged);
               }}
+              onDismiss={() => setShowTimePicker(false)}
             />
           )}
         </View>

@@ -137,10 +137,11 @@ export function TaskForm({
                 value={field.value}
                 mode="date"
                 display="default"
-                onChange={(_event, selectedDate) => {
+                onValueChange={(_event, selectedDate) => {
                   setShowDatePicker(false);
-                  if (selectedDate) field.onChange(selectedDate);
+                  field.onChange(selectedDate);
                 }}
+                onDismiss={() => setShowDatePicker(false)}
               />
             )}
           </>
@@ -161,10 +162,11 @@ export function TaskForm({
                 value={field.value}
                 mode="time"
                 display="default"
-                onChange={(_event, selectedTime) => {
+                onValueChange={(_event, selectedTime) => {
                   setShowTimePicker(false);
-                  if (selectedTime) field.onChange(selectedTime);
+                  field.onChange(selectedTime);
                 }}
+                onDismiss={() => setShowTimePicker(false)}
               />
             )}
           </>
