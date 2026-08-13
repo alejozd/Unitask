@@ -60,7 +60,7 @@ export default function NuevaTareaScreen() {
     setReminderSpecs((current) => current.filter((_, i) => i !== index));
   }
 
-  async function handleSubmit(values: TaskFormValues) {
+  async function submitTask(values: TaskFormValues, dueDateTime: Date) {
     try {
       const activeSemester = await getActiveSemester();
       if (!activeSemester) {
@@ -72,7 +72,7 @@ export default function NuevaTareaScreen() {
         title: values.title,
         description: values.description || undefined,
         subjectId: values.subjectId,
-        dueDateTime: combineDateAndTime(values.dueDate, values.dueTime),
+        dueDateTime,
         priority: values.priority,
         subtaskTexts,
         reminderSpecs,
@@ -85,6 +85,22 @@ export default function NuevaTareaScreen() {
         Alert.alert("Error", "No se pudo crear la tarea.");
       }
     }
+  }
+
+  async function handleSubmit(values: TaskFormValues) {
+    const dueDateTime = combineDateAndTime(values.dueDate, values.dueTime);
+    if (dueDateTime.getTime() <= Date.now()) {
+      Alert.alert(
+        "Fecha límite ya pasada",
+        "La fecha y hora límite elegidas ya pasaron según el reloj del dispositivo. La tarea se creará como Vencida.",
+        [
+          { text: "Cancelar", style: "cancel" },
+          { text: "Crear de todas formas", onPress: () => submitTask(values, dueDateTime) },
+        ],
+      );
+      return;
+    }
+    await submitTask(values, dueDateTime);
   }
 
   let content: ReactNode;
