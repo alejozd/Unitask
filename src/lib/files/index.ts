@@ -1,4 +1,5 @@
 import * as DocumentPicker from "expo-document-picker";
+import * as IntentLauncher from "expo-intent-launcher";
 import * as Sharing from "expo-sharing";
 import { Directory, File, Paths } from "expo-file-system";
 
@@ -100,12 +101,28 @@ export function deleteAttachmentDirectoryForTask(taskId: string): void {
 }
 
 /**
- * Hands the file to the OS "open with" flow via the system share sheet
- * (09-file-management.md's View flow) — UniTask never renders any file
- * type itself. No-ops (does not throw) if sharing isn't available on this
- * device, matching expo-sharing's own recommended availability check.
+ * Hands the file to the OS "open with" flow (09-file-management.md's View
+ * flow). Tries a direct ACTION_VIEW intent first (opens straight into the
+ * device's default/only handler for this MIME type, if one exists) —
+ * falls back to the share sheet (letting the user pick an app) if no app
+ * can handle a direct VIEW intent, or if launching it fails for any other
+ * reason. UniTask never renders any file type itself either way.
  */
 export async function openAttachment(storedPath: string, mimeType: string): Promise<void> {
+  try {
+    const file = new File(storedPath);
+    await IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
+      data: file.contentUri,
+      type: mimeType,
+      flags: 1, // Intent.FLAG_GRANT_READ_URI_PERMISSION
+    });
+    return;
+  } catch {
+    // No app can handle the intent (ActivityNotFoundException, rejected by
+    // expo-intent-launcher), or launching it failed for any other reason —
+    // fall through to the share sheet below.
+  }
+
   const available = await Sharing.isAvailableAsync();
   if (!available) return;
   await Sharing.shareAsync(storedPath, { mimeType });
