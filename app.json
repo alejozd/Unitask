@@ -12,6 +12,7 @@
     },
     "android": {
       "package": "com.alejozd.unitask",
+      "permissions": ["POST_NOTIFICATIONS"],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
