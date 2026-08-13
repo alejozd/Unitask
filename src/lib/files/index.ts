@@ -16,6 +16,19 @@ export interface PickedDocument {
 }
 
 /**
+ * Thrown by `takePhoto` when the camera permission was denied — distinct
+ * from the plain `null` result used for user cancellation, since on Android
+ * a second denial is permanent until the user visits system settings and
+ * callers need to tell the two cases apart to give useful feedback.
+ */
+export class CameraPermissionDeniedError extends Error {
+  constructor() {
+    super("Camera permission was denied");
+    this.name = "CameraPermissionDeniedError";
+  }
+}
+
+/**
  * Opens the system document picker. Returns null if the user cancelled.
  * `mimeType` can legitimately come back null from the OS picker — callers
  * must not assume it's always present (see this plan's Global Constraints).
@@ -39,12 +52,15 @@ export async function pickDocument(): Promise<PickedDocument | null> {
  * Opens the system camera to take a photo. Requests camera permission
  * lazily — only when the user presses the "Tomar foto" button, never
  * proactively (same pattern as requestNotificationPermission, Phase 4).
- * Returns null if permission was denied or the user cancelled — callers
- * must not assume a non-null result.
+ * Returns null if the user cancelled — callers must not assume a non-null
+ * result. Throws `CameraPermissionDeniedError` if permission was denied,
+ * so callers can distinguish "denied" from "cancelled" and give useful
+ * feedback (a plain `null` return made the two indistinguishable, so a
+ * denied permission looked like the button silently doing nothing).
  */
 export async function takePhoto(): Promise<PickedDocument | null> {
   const permission = await ImagePicker.requestCameraPermissionsAsync();
-  if (!permission.granted) return null;
+  if (!permission.granted) throw new CameraPermissionDeniedError();
 
   const result = await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 1 });
   if (result.canceled || !result.assets || result.assets.length === 0) return null;
@@ -88,8 +104,16 @@ export async function copyIntoAttachmentStorage(
   const taskDir = new Directory(ATTACHMENTS_ROOT, taskId);
   taskDir.create({ intermediates: true, idempotent: true });
 
+  // `originalFileName` comes unsanitized from the OS document picker's
+  // DISPLAY_NAME (controlled by whichever DocumentsProvider served the
+  // file). expo-file-system's path-join does not strip `..` or encode `/`,
+  // so a filename like `../../evil.pdf` could place the copied file outside
+  // `attachments/{taskId}/` — defeating deleteAttachmentDirectoryForTask's
+  // cleanup guarantee. Stripping path separators guarantees the joined
+  // destination can never contain a directory component.
+  const safeName = originalFileName.replace(/[/\\]/g, "_") || "archivo";
   const sourceFile = new File(sourceUri);
-  const destination = new File(taskDir, `${attachmentId}-${originalFileName}`);
+  const destination = new File(taskDir, `${attachmentId}-${safeName}`);
   try {
     await sourceFile.copy(destination);
   } catch (error) {

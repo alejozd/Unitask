@@ -1,7 +1,12 @@
 import { useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { pickDocument, takePhoto, type PickedDocument } from "@/lib/files";
+import {
+  CameraPermissionDeniedError,
+  pickDocument,
+  takePhoto,
+  type PickedDocument,
+} from "@/lib/files";
 import { colors } from "@/theme";
 
 /** Human-readable file size, shared by every screen that lists attachments. */
@@ -42,6 +47,8 @@ export function AttachmentList({
     try {
       const picked = await pickDocument();
       if (picked) onPick(picked);
+    } catch {
+      Alert.alert("Error", "No se pudo abrir el selector de archivos.");
     } finally {
       setPicking(false);
     }
@@ -52,6 +59,15 @@ export function AttachmentList({
     try {
       const picked = await takePhoto();
       if (picked) onPick(picked);
+    } catch (error) {
+      if (error instanceof CameraPermissionDeniedError) {
+        Alert.alert(
+          "Permiso de cámara denegado",
+          "Activa el permiso de cámara para esta app desde los ajustes del sistema para poder tomar una foto.",
+        );
+      } else {
+        Alert.alert("Error", "No se pudo abrir la cámara.");
+      }
     } finally {
       setTakingPhoto(false);
     }
