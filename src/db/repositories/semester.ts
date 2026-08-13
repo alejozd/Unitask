@@ -4,7 +4,10 @@ import type { BaseSQLiteDatabase } from "drizzle-orm/sqlite-core";
 
 import { db as defaultDb } from "@/db/client";
 import * as schema from "@/db/schema";
+import { cancelAllRemindersForTask } from "@/db/repositories/reminder";
 import { semesters, type Semester } from "@/db/schema/semester";
+import { subjects } from "@/db/schema/subject";
+import { tasks } from "@/db/schema/task";
 import { planSemesterCreation } from "@/domain/semester-lifecycle";
 
 /**
@@ -13,6 +16,25 @@ import { planSemesterCreation } from "@/domain/semester-lifecycle";
  * as well as the real `drizzle-orm/expo-sqlite` client on-device.
  */
 export type Database = BaseSQLiteDatabase<"async" | "sync", unknown, typeof schema>;
+
+/**
+ * Cancels every pending OS notification for every task under a semester's
+ * subjects — mirrors how `deleteSubject`'s cascade-delete cancels its
+ * tasks' reminders before the delete. Must run while the semester is still
+ * active: `cancelAllRemindersForTask` calls `assertTaskEditable`, which
+ * throws once the semester is closed, so this has to happen BEFORE the
+ * semester's status flips to "closed", not after.
+ */
+async function cancelRemindersForSemester(semesterId: string, database: Database): Promise<void> {
+  const taskRows = await database
+    .select({ id: tasks.id })
+    .from(tasks)
+    .innerJoin(subjects, eq(tasks.subjectId, subjects.id))
+    .where(eq(subjects.semesterId, semesterId));
+  for (const { id } of taskRows) {
+    await cancelAllRemindersForTask(id, database);
+  }
+}
 
 /**
  * Creates a new semester as active. If another semester is currently
@@ -37,6 +59,15 @@ export async function createSemester(
     createdAt: now,
   };
 
+  // Cancel the reminders of every semester about to be auto-closed BEFORE
+  // the transaction below flips their status — cancelAllRemindersForTask
+  // (via assertTaskEditable) requires the semester to still be active. This
+  // has to happen outside `database.transaction(...)` because that callback
+  // must stay synchronous (see the note above its call).
+  for (const id of plan.semesterIdsToClose) {
+    await cancelRemindersForSemester(id, database);
+  }
+
   // Both drivers behind the `Database` type (better-sqlite3 and expo-sqlite)
   // run transactions synchronously: the callback passed to `.transaction()`
   // must not be `async` (an async function always returns a Promise, which
@@ -56,6 +87,9 @@ export async function createSemester(
 }
 
 export async function closeSemester(id: string, database: Database = defaultDb): Promise<void> {
+  // Must run before the status update below — see cancelRemindersForSemester's note.
+  await cancelRemindersForSemester(id, database);
+
   await database
     .update(semesters)
     .set({ status: "closed", closedAt: new Date() })

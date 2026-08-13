@@ -68,7 +68,7 @@ export default function NuevaTareaScreen() {
         // screen without an active semester (root layout redirect, Phase 2 Task 3).
         throw new Error("No hay un semestre activo");
       }
-      await createTask({
+      const { remindersUnscheduled } = await createTask({
         title: values.title,
         description: values.description || undefined,
         subjectId: values.subjectId,
@@ -77,7 +77,15 @@ export default function NuevaTareaScreen() {
         subtaskTexts,
         reminderSpecs,
       });
-      router.back();
+      if (remindersUnscheduled > 0) {
+        Alert.alert(
+          "Recordatorio no programado",
+          `${remindersUnscheduled} recordatorio(s) no se pudo(eron) programar porque su hora ya pasó o el permiso de notificaciones fue denegado.`,
+          [{ text: "OK", onPress: () => router.back() }],
+        );
+      } else {
+        router.back();
+      }
     } catch (error) {
       if (error instanceof SemesterReadOnlyError) {
         Alert.alert("Semestre cerrado", "Este semestre está cerrado y no admite nuevas tareas.");

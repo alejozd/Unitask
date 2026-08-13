@@ -35,7 +35,7 @@ async function getReminderOrThrow(id: string, database: Database) {
   return reminder;
 }
 
-function toReminderSpec(reminder: Reminder): ReminderSpec {
+export function toReminderSpec(reminder: Reminder): ReminderSpec {
   if (reminder.kind === "fixed") {
     return { kind: "fixed", fixedDateTime: reminder.fixedDateTime as Date };
   }
@@ -145,11 +145,20 @@ export async function rescheduleRemindersForTask(
     .from(reminders)
     .where(and(eq(reminders.taskId, taskId), isNotNull(reminders.notificationId)));
 
+  const now = new Date();
   const actions = rescheduleOnDueDateChange(
-    pending.map((r) => ({ id: r.id, spec: toReminderSpec(r), hasFired: false })),
+    pending.map((r) => ({
+      id: r.id,
+      spec: toReminderSpec(r),
+      hasFired: r.computedFireAt.getTime() <= now.getTime(),
+    })),
     newDueDateTime,
-    new Date(),
+    now,
   );
+
+  // Permission status doesn't change mid-loop, so request it once up front
+  // instead of once per "keep" action.
+  const permission = await requestNotificationPermission();
 
   let removedCount = 0;
   for (const action of actions) {
@@ -170,7 +179,6 @@ export async function rescheduleRemindersForTask(
         await cancelReminderNotification(reminder.notificationId);
       }
       let newNotificationId: string | null = null;
-      const permission = await requestNotificationPermission();
       if (permission.granted) {
         newNotificationId = await scheduleReminderNotification(action.newFireAt, {
           taskTitle: task.title,
@@ -183,9 +191,10 @@ export async function rescheduleRemindersForTask(
         .set({ computedFireAt: action.newFireAt, notificationId: newNotificationId })
         .where(eq(reminders.id, reminder.id));
     }
-    // "unchanged" never appears here — we only ever fetch notificationId
-    // IS NOT NULL rows (i.e. hasFired: false for every input), and the
-    // domain function only returns "unchanged" for hasFired: true inputs.
+    // "unchanged" appears for reminders whose computedFireAt is already in
+    // the past (already fired, but never reconciled since there is no
+    // notification-received listener yet) — left untouched, matching the
+    // domain function's contract.
   }
 
   return { removedCount };

@@ -39,7 +39,7 @@ async function seedTaskInActiveSemester(db: ReturnType<typeof freshTestDb>) {
     createdAt: new Date(),
     updatedAt: new Date(),
   });
-  const task = await createTask(
+  const { task } = await createTask(
     {
       title: "Tarea",
       subjectId,

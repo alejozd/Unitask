@@ -114,7 +114,7 @@ export function ReminderPicker({ onAdd }: ReminderPickerProps) {
       ) : (
         <View style={styles.fixedRow}>
           <TouchableOpacity style={styles.fixedButton} onPress={() => setShowDatePicker(true)}>
-            <Text>
+            <Text style={styles.fixedButtonText}>
               {fixedDateTime.toLocaleDateString("es", {
                 year: "numeric",
                 month: "long",
@@ -123,7 +123,7 @@ export function ReminderPicker({ onAdd }: ReminderPickerProps) {
             </Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.fixedButton} onPress={() => setShowTimePicker(true)}>
-            <Text>
+            <Text style={styles.fixedButtonText}>
               {fixedDateTime.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}
             </Text>
           </TouchableOpacity>
@@ -216,6 +216,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
+  fixedButtonText: { color: colors.text },
   addButton: {
     borderWidth: 1,
     borderColor: colors.primary,

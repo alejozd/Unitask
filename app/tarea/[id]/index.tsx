@@ -2,7 +2,15 @@ import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { eq } from "drizzle-orm";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import {
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import {
@@ -12,7 +20,7 @@ import {
 } from "@/components/ReminderPicker";
 import { db } from "@/db/client";
 import { deleteTask, completeTaskAction } from "@/db/repositories/task";
-import { addReminder, removeReminder } from "@/db/repositories/reminder";
+import { addReminder, removeReminder, toReminderSpec } from "@/db/repositories/reminder";
 import { SemesterReadOnlyError } from "@/db/repositories/subject";
 import {
   addSubtask,
@@ -226,170 +234,165 @@ export default function DetalleDeTareaScreen() {
         <Text style={styles.backButtonText}>← Volver</Text>
       </TouchableOpacity>
 
-      <View style={styles.headerRow}>
-        <View style={[styles.priorityDot, { backgroundColor: priorityColors[task.priority] }]} />
-        <Text style={styles.title}>{task.title}</Text>
-      </View>
-      <Text style={styles.statusLine}>
-        {status} · {progress}% · Prioridad {task.priority}
-      </Text>
-      {subject && (
-        <View style={styles.subjectRow}>
-          <View style={[styles.subjectDot, { backgroundColor: subjectPalette[subject.color] }]} />
-          <Text style={styles.detail}>{subject.name}</Text>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.headerRow}>
+          <View style={[styles.priorityDot, { backgroundColor: priorityColors[task.priority] }]} />
+          <Text style={styles.title}>{task.title}</Text>
         </View>
-      )}
-      <Text style={styles.detail}>
-        Vence: {task.dueDateTime.toLocaleString("es", { dateStyle: "long", timeStyle: "short" })}
-      </Text>
-      {task.description ? <Text style={styles.description}>{task.description}</Text> : null}
-
-      <TouchableOpacity
-        style={[styles.completeButton, task.completed && styles.completeButtonDisabled]}
-        onPress={handleComplete}
-        disabled={task.completed || busy}
-      >
-        <Text style={styles.completeButtonText}>
-          {task.completed ? "Completada" : "Marcar como completada"}
+        <Text style={styles.statusLine}>
+          {status} · {progress}% · Prioridad {task.priority}
         </Text>
-      </TouchableOpacity>
+        {subject && (
+          <View style={styles.subjectRow}>
+            <View style={[styles.subjectDot, { backgroundColor: subjectPalette[subject.color] }]} />
+            <Text style={styles.detail}>{subject.name}</Text>
+          </View>
+        )}
+        <Text style={styles.detail}>
+          Vence: {task.dueDateTime.toLocaleString("es", { dateStyle: "long", timeStyle: "short" })}
+        </Text>
+        {task.description ? <Text style={styles.description}>{task.description}</Text> : null}
 
-      <Text style={styles.sectionTitle}>Subtareas</Text>
-      {taskSubtasks.map((subtask, index) => {
-        const isEditing = editingSubtaskId === subtask.id;
-        return (
-          <View key={subtask.id} style={styles.subtaskRow}>
-            <TouchableOpacity
-              style={styles.subtaskCheckbox}
-              disabled={busy}
-              onPress={() => handleToggleSubtask(subtask.id, !subtask.completed)}
-            >
-              <Text style={styles.subtaskCheckboxText}>{subtask.completed ? "✓" : "○"}</Text>
-            </TouchableOpacity>
-            {isEditing ? (
-              // Own column so the input gets the row's full remaining width
-              // instead of squeezing next to five sibling action buttons.
-              <View style={styles.subtaskEditColumn}>
-                <TextInput
-                  style={styles.subtaskInput}
-                  value={editingText}
-                  onChangeText={setEditingText}
-                  onSubmitEditing={() => handleRenameSubtask(subtask.id, editingText)}
-                  autoFocus
-                />
-                <View style={styles.subtaskEditActions}>
+        <TouchableOpacity
+          style={[styles.completeButton, task.completed && styles.completeButtonDisabled]}
+          onPress={handleComplete}
+          disabled={task.completed || busy}
+        >
+          <Text style={styles.completeButtonText}>
+            {task.completed ? "Completada" : "Marcar como completada"}
+          </Text>
+        </TouchableOpacity>
+
+        <Text style={styles.sectionTitle}>Subtareas</Text>
+        {taskSubtasks.map((subtask, index) => {
+          const isEditing = editingSubtaskId === subtask.id;
+          return (
+            <View key={subtask.id} style={styles.subtaskRow}>
+              <TouchableOpacity
+                style={styles.subtaskCheckbox}
+                disabled={busy}
+                onPress={() => handleToggleSubtask(subtask.id, !subtask.completed)}
+              >
+                <Text style={styles.subtaskCheckboxText}>{subtask.completed ? "✓" : "○"}</Text>
+              </TouchableOpacity>
+              {isEditing ? (
+                // Own column so the input gets the row's full remaining width
+                // instead of squeezing next to five sibling action buttons.
+                <View style={styles.subtaskEditColumn}>
+                  <TextInput
+                    style={styles.subtaskInput}
+                    value={editingText}
+                    onChangeText={setEditingText}
+                    onSubmitEditing={() => handleRenameSubtask(subtask.id, editingText)}
+                    autoFocus
+                  />
+                  <View style={styles.subtaskEditActions}>
+                    <TouchableOpacity
+                      disabled={busy}
+                      onPress={() => handleRenameSubtask(subtask.id, editingText)}
+                    >
+                      <Text style={styles.subtaskEdit}>Guardar</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity disabled={busy} onPress={handleCancelEditSubtask}>
+                      <Text style={styles.subtaskCancel}>Cancelar</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
+                <>
+                  <Text
+                    style={[styles.subtaskText, subtask.completed && styles.subtaskTextCompleted]}
+                  >
+                    {subtask.text}
+                  </Text>
+                  <TouchableOpacity
+                    disabled={busy || index === 0}
+                    onPress={() => handleMoveSubtask(subtask.id, "up")}
+                  >
+                    <Text style={styles.subtaskAction}>↑</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    disabled={busy || index === taskSubtasks.length - 1}
+                    onPress={() => handleMoveSubtask(subtask.id, "down")}
+                  >
+                    <Text style={styles.subtaskAction}>↓</Text>
+                  </TouchableOpacity>
                   <TouchableOpacity
                     disabled={busy}
-                    onPress={() => handleRenameSubtask(subtask.id, editingText)}
+                    onPress={() => handleStartEditSubtask(subtask.id, subtask.text)}
                   >
-                    <Text style={styles.subtaskEdit}>Guardar</Text>
+                    <Text style={styles.subtaskEdit}>Editar</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity disabled={busy} onPress={handleCancelEditSubtask}>
-                    <Text style={styles.subtaskCancel}>Cancelar</Text>
+                  <TouchableOpacity disabled={busy} onPress={() => handleRemoveSubtask(subtask.id)}>
+                    <Text style={styles.subtaskRemove}>Quitar</Text>
                   </TouchableOpacity>
-                </View>
-              </View>
-            ) : (
-              <>
-                <Text
-                  style={[styles.subtaskText, subtask.completed && styles.subtaskTextCompleted]}
-                >
-                  {subtask.text}
-                </Text>
-                <TouchableOpacity
-                  disabled={busy || index === 0}
-                  onPress={() => handleMoveSubtask(subtask.id, "up")}
-                >
-                  <Text style={styles.subtaskAction}>↑</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  disabled={busy || index === taskSubtasks.length - 1}
-                  onPress={() => handleMoveSubtask(subtask.id, "down")}
-                >
-                  <Text style={styles.subtaskAction}>↓</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  disabled={busy}
-                  onPress={() => handleStartEditSubtask(subtask.id, subtask.text)}
-                >
-                  <Text style={styles.subtaskEdit}>Editar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity disabled={busy} onPress={() => handleRemoveSubtask(subtask.id)}>
-                  <Text style={styles.subtaskRemove}>Quitar</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
-        );
-      })}
-      <View style={styles.subtaskInputRow}>
-        <TextInput
-          style={styles.subtaskInput}
-          value={newSubtaskText}
-          onChangeText={setNewSubtaskText}
-          placeholder="Nueva subtarea"
-          onSubmitEditing={handleAddSubtask}
-        />
-        <TouchableOpacity
-          style={styles.subtaskAddButton}
-          disabled={busy}
-          onPress={handleAddSubtask}
-        >
-          <Text style={styles.subtaskAddButtonText}>Añadir</Text>
-        </TouchableOpacity>
-      </View>
-
-      <Text style={styles.sectionTitle}>Recordatorios</Text>
-      {taskReminders.map((reminder) => (
-        <View key={reminder.id} style={styles.subtaskRow}>
-          <Text style={styles.subtaskText}>
-            {formatReminderSpec(
-              reminder.kind === "fixed"
-                ? { kind: "fixed", fixedDateTime: reminder.fixedDateTime as Date }
-                : {
-                    kind: "relative",
-                    offsetValue: reminder.offsetValue as number,
-                    offsetUnit: reminder.offsetUnit as "minutes" | "hours" | "days",
-                  },
-            )}
-            {(() => {
-              const reason = describeUnscheduledReason(
-                reminder.notificationId,
-                reminder.computedFireAt as Date,
-              );
-              return reason ? ` (no programado: ${formatUnscheduledReason(reason)})` : "";
-            })()}
-          </Text>
-          <TouchableOpacity disabled={busy} onPress={() => handleRemoveReminder(reminder.id)}>
-            <Text style={styles.subtaskRemove}>Quitar</Text>
+                </>
+              )}
+            </View>
+          );
+        })}
+        <View style={styles.subtaskInputRow}>
+          <TextInput
+            style={styles.subtaskInput}
+            value={newSubtaskText}
+            onChangeText={setNewSubtaskText}
+            placeholder="Nueva subtarea"
+            onSubmitEditing={handleAddSubtask}
+          />
+          <TouchableOpacity
+            style={styles.subtaskAddButton}
+            disabled={busy}
+            onPress={handleAddSubtask}
+          >
+            <Text style={styles.subtaskAddButtonText}>Añadir</Text>
           </TouchableOpacity>
         </View>
-      ))}
-      <ReminderPicker onAdd={handleAddReminder} />
 
-      <View style={styles.actions}>
-        <TouchableOpacity
-          style={styles.editButton}
-          onPress={() => router.push(`/tarea/${task.id}/editar`)}
-        >
-          <Text style={styles.editButtonText}>Editar</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.deleteButton}
-          onPress={handleDeletePress}
-          disabled={deleting}
-        >
-          <Text style={styles.deleteButtonText}>Eliminar tarea</Text>
-        </TouchableOpacity>
-      </View>
+        <Text style={styles.sectionTitle}>Recordatorios</Text>
+        {taskReminders.map((reminder) => (
+          <View key={reminder.id} style={styles.subtaskRow}>
+            <Text style={styles.subtaskText}>
+              {formatReminderSpec(toReminderSpec(reminder))}
+              {(() => {
+                const reason = describeUnscheduledReason(
+                  reminder.notificationId,
+                  reminder.computedFireAt as Date,
+                );
+                return reason ? ` (no programado: ${formatUnscheduledReason(reason)})` : "";
+              })()}
+            </Text>
+            <TouchableOpacity disabled={busy} onPress={() => handleRemoveReminder(reminder.id)}>
+              <Text style={styles.subtaskRemove}>Quitar</Text>
+            </TouchableOpacity>
+          </View>
+        ))}
+        <ReminderPicker onAdd={handleAddReminder} />
+
+        <View style={styles.actions}>
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={() => router.push(`/tarea/${task.id}/editar`)}
+          >
+            <Text style={styles.editButtonText}>Editar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={handleDeletePress}
+            disabled={deleting}
+          >
+            <Text style={styles.deleteButtonText}>Eliminar tarea</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, gap: 8 },
+  container: { flex: 1 },
+  scrollContent: { padding: 20, gap: 8, paddingBottom: 40 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  backButton: { alignSelf: "flex-start" },
+  backButton: { alignSelf: "flex-start", marginHorizontal: 20, marginTop: 12 },
   backButtonText: { color: colors.primary, fontSize: 15, fontWeight: "600" },
   headerRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 8 },
   priorityDot: { width: 14, height: 14, borderRadius: 7 },

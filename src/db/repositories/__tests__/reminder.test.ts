@@ -60,7 +60,10 @@ async function seedTaskInActiveSemester(db: ReturnType<typeof freshTestDb>, dueD
   // creates zero reminders regardless. Each test explicitly sets up its own
   // reminder scenario via addReminder rather than depending on createTask's
   // own reminder-creation behavior (added and tested separately in Task 3).
-  const task = await createTask({ title: "Tarea", subjectId, dueDateTime, priority: "Media" }, db);
+  const { task } = await createTask(
+    { title: "Tarea", subjectId, dueDateTime, priority: "Media" },
+    db,
+  );
   return { semesterId, task };
 }
 
@@ -231,6 +234,16 @@ describe("reminder repository", () => {
       void r1;
       void r2;
     });
+
+    it("blocks cancelling reminders under a closed semester", async () => {
+      const db = freshTestDb();
+      const dueDateTime = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
+      const { task } = await seedTaskInActiveSemester(db, dueDateTime);
+      await addReminder(task.id, { kind: "relative", offsetValue: 1, offsetUnit: "days" }, db);
+      await db.update(semesters).set({ status: "closed", closedAt: new Date() });
+
+      await expect(cancelAllRemindersForTask(task.id, db)).rejects.toThrow(SemesterReadOnlyError);
+    });
   });
 
   describe("rescheduleRemindersForTask", () => {
@@ -297,7 +310,16 @@ describe("reminder repository", () => {
       expect(remaining).toHaveLength(0);
     });
 
-    it("leaves already-fired reminders (notificationId null) untouched", async () => {
+    it("leaves an already-fired-but-unreconciled reminder untouched", async () => {
+      // "Fired" here means computedFireAt is already in the past — NOT
+      // notificationId === null. There is no notification-received listener
+      // or startup reconciliation anywhere in this codebase, so a reminder
+      // that has actually fired still has its notificationId set. A row
+      // with notificationId === null would never even be fetched by
+      // rescheduleRemindersForTask's `isNotNull(reminders.notificationId)`
+      // filter, so simulating "fired" that way (as this test used to)
+      // would trivially pass regardless of whether hasFired was derived
+      // correctly.
       const db = freshTestDb();
       const dueDateTime = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
       const { task } = await seedTaskInActiveSemester(db, dueDateTime);
@@ -306,18 +328,29 @@ describe("reminder repository", () => {
         { kind: "relative", offsetValue: 1, offsetUnit: "days" },
         db,
       );
-      // Simulate an already-fired (or already-cancelled) reminder.
-      await db.update(reminders).set({ notificationId: null }).where(eq(reminders.id, reminder.id));
+      expect(reminder.notificationId).not.toBeNull();
+      const pastFireAt = new Date(Date.now() - 1000 * 60 * 60);
+      await db
+        .update(reminders)
+        .set({ computedFireAt: pastFireAt })
+        .where(eq(reminders.id, reminder.id));
 
       const newDueDateTime = new Date(Date.now() + 1000 * 60 * 60 * 24 * 20);
       const result = await rescheduleRemindersForTask(task.id, newDueDateTime, db);
 
       expect(result.removedCount).toBe(0);
+      expect(mockedNotifications.cancelReminderNotification).not.toHaveBeenCalled();
+      // Only the schedule call from the original addReminder above — none
+      // from the reschedule, since this reminder must be left untouched.
+      expect(mockedNotifications.scheduleReminderNotification).toHaveBeenCalledTimes(1);
       const [unchanged] = await db.select().from(reminders).where(eq(reminders.id, reminder.id));
-      // Still the OLD computed value — see the "creates a relative reminder"
-      // test above for why the expectation is floored to the second.
+      expect(unchanged).toBeDefined();
+      expect(unchanged.notificationId).toBe(reminder.notificationId);
+      // Still the OLD (past) computed value — see the "creates a relative
+      // reminder" test above for why the expectation is floored to the
+      // second.
       expect(unchanged.computedFireAt.getTime()).toBe(
-        Math.floor(dueDateTime.getTime() / 1000) * 1000 - 86_400_000,
+        Math.floor(pastFireAt.getTime() / 1000) * 1000,
       );
     });
 

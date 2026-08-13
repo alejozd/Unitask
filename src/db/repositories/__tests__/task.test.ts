@@ -87,7 +87,7 @@ describe("task repository", () => {
     const db = freshTestDb();
     const { subjectId } = await seedActiveSemesterWithSubject(db);
 
-    const task = await createTask(
+    const { task } = await createTask(
       {
         title: "Ensayo final",
         description: "Sobre la Revolución Industrial",
@@ -117,7 +117,7 @@ describe("task repository", () => {
     const db = freshTestDb();
     const { subjectId } = await seedActiveSemesterWithSubject(db);
 
-    const task = await createTask(
+    const { task } = await createTask(
       { title: "Leer capítulo 3", subjectId, dueDateTime: future, priority: "Media" },
       db,
     );
@@ -147,7 +147,7 @@ describe("task repository", () => {
       createdAt: new Date(),
       updatedAt: new Date(),
     });
-    const task = await createTask(
+    const { task } = await createTask(
       { title: "Original", subjectId, dueDateTime: future, priority: "Baja" },
       db,
     );
@@ -167,7 +167,7 @@ describe("task repository", () => {
   it("blocks updating a task under a closed semester", async () => {
     const db = freshTestDb();
     const { subjectId } = await seedActiveSemesterWithSubject(db);
-    const task = await createTask(
+    const { task } = await createTask(
       { title: "Tarea", subjectId, dueDateTime: future, priority: "Media" },
       db,
     );
@@ -183,7 +183,7 @@ describe("task repository", () => {
     const db = freshTestDb();
     const { subjectId } = await seedActiveSemesterWithSubject(db);
     const { subjectId: closedSubjectId } = await seedClosedSemesterWithSubject(db);
-    const task = await createTask(
+    const { task } = await createTask(
       { title: "Tarea", subjectId, dueDateTime: future, priority: "Media" },
       db,
     );
@@ -202,7 +202,7 @@ describe("task repository", () => {
   it("deletes a task and cascades its subtasks", async () => {
     const db = freshTestDb();
     const { subjectId } = await seedActiveSemesterWithSubject(db);
-    const task = await createTask(
+    const { task } = await createTask(
       {
         title: "Con subtareas",
         subjectId,
@@ -224,7 +224,7 @@ describe("task repository", () => {
   it("blocks deleting a task under a closed semester", async () => {
     const db = freshTestDb();
     const { subjectId } = await seedActiveSemesterWithSubject(db);
-    const task = await createTask(
+    const { task } = await createTask(
       { title: "Tarea", subjectId, dueDateTime: future, priority: "Baja" },
       db,
     );
@@ -236,7 +236,7 @@ describe("task repository", () => {
   it("completing a task auto-checks all subtasks and stamps completedLate = false when on time", async () => {
     const db = freshTestDb();
     const { subjectId } = await seedActiveSemesterWithSubject(db);
-    const task = await createTask(
+    const { task } = await createTask(
       {
         title: "Tarea con subtareas",
         subjectId,
@@ -262,7 +262,7 @@ describe("task repository", () => {
     const db = freshTestDb();
     const { subjectId } = await seedActiveSemesterWithSubject(db);
     const past = new Date(Date.now() - 1000 * 60 * 60 * 24); // yesterday
-    const task = await createTask(
+    const { task } = await createTask(
       { title: "Vencida", subjectId, dueDateTime: past, priority: "Alta" },
       db,
     );
@@ -276,7 +276,7 @@ describe("task repository", () => {
   it("blocks completing a task under a closed semester", async () => {
     const db = freshTestDb();
     const { subjectId } = await seedActiveSemesterWithSubject(db);
-    const task = await createTask(
+    const { task } = await createTask(
       { title: "Tarea", subjectId, dueDateTime: future, priority: "Media" },
       db,
     );
@@ -289,7 +289,7 @@ describe("task repository", () => {
     const db = freshTestDb();
     const { subjectId } = await seedActiveSemesterWithSubject(db);
 
-    const task = await createTask(
+    const { task } = await createTask(
       {
         title: "Tarea con recordatorio",
         subjectId,
@@ -309,7 +309,7 @@ describe("task repository", () => {
     const db = freshTestDb();
     const { subjectId } = await seedActiveSemesterWithSubject(db);
 
-    const task = await createTask(
+    const { task } = await createTask(
       { title: "Tarea sin recordatorio", subjectId, dueDateTime: future, priority: "Media" },
       db,
     );
@@ -321,7 +321,7 @@ describe("task repository", () => {
   it("completing a task cancels its pending reminders", async () => {
     const db = freshTestDb();
     const { subjectId } = await seedActiveSemesterWithSubject(db);
-    const task = await createTask(
+    const { task } = await createTask(
       {
         title: "Tarea",
         subjectId,
@@ -344,7 +344,7 @@ describe("task repository", () => {
   it("deleting a task cancels its pending reminders", async () => {
     const db = freshTestDb();
     const { subjectId } = await seedActiveSemesterWithSubject(db);
-    const task = await createTask(
+    const { task } = await createTask(
       {
         title: "Tarea",
         subjectId,
@@ -365,7 +365,7 @@ describe("task repository", () => {
   it("updating a task's due date reschedules its reminders and reports how many were removed", async () => {
     const db = freshTestDb();
     const { subjectId } = await seedActiveSemesterWithSubject(db);
-    const task = await createTask(
+    const { task } = await createTask(
       {
         title: "Tarea",
         subjectId,
@@ -389,7 +389,7 @@ describe("task repository", () => {
   it("updating a task without changing its due date does not touch reminders", async () => {
     const db = freshTestDb();
     const { subjectId } = await seedActiveSemesterWithSubject(db);
-    const task = await createTask(
+    const { task } = await createTask(
       {
         title: "Tarea",
         subjectId,

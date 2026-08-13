@@ -33,10 +33,16 @@ export interface CreateTaskInput {
   reminderSpecs?: ReminderSpec[];
 }
 
+export interface CreateTaskResult {
+  task: Task;
+  /** Count of reminders whose `addReminder` call came back with `notificationId: null`. */
+  remindersUnscheduled: number;
+}
+
 export async function createTask(
   input: CreateTaskInput,
   database: Database = defaultDb,
-): Promise<Task> {
+): Promise<CreateTaskResult> {
   await assertSubjectEditable(input.subjectId, database);
 
   const now = new Date();
@@ -74,11 +80,15 @@ export async function createTask(
     }
   });
 
+  let remindersUnscheduled = 0;
   for (const spec of input.reminderSpecs ?? []) {
-    await addReminder(newTask.id, spec, database);
+    const reminder = await addReminder(newTask.id, spec, database);
+    if (reminder.notificationId === null) {
+      remindersUnscheduled += 1;
+    }
   }
 
-  return newTask as Task;
+  return { task: newTask as Task, remindersUnscheduled };
 }
 
 export interface UpdateTaskInput {
