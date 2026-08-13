@@ -5,7 +5,11 @@ import { useEffect, useState } from "react";
 import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { ReminderPicker, formatReminderSpec } from "@/components/ReminderPicker";
+import {
+  ReminderPicker,
+  formatReminderSpec,
+  formatUnscheduledReason,
+} from "@/components/ReminderPicker";
 import { db } from "@/db/client";
 import { deleteTask, completeTaskAction } from "@/db/repositories/task";
 import { addReminder, removeReminder } from "@/db/repositories/reminder";
@@ -23,7 +27,7 @@ import { subtasks } from "@/db/schema/subtask";
 import { tasks } from "@/db/schema/task";
 import { calculateTaskProgress } from "@/domain/task-progress";
 import { deriveTaskStatus } from "@/domain/task-status";
-import type { ReminderSpec } from "@/domain/reminder-scheduling";
+import { describeUnscheduledReason, type ReminderSpec } from "@/domain/reminder-scheduling";
 import { colors, priorityColors, subjectPalette } from "@/theme";
 
 function handleActionError(error: unknown, fallbackMessage: string) {
@@ -348,7 +352,13 @@ export default function DetalleDeTareaScreen() {
                     offsetUnit: reminder.offsetUnit as "minutes" | "hours" | "days",
                   },
             )}
-            {reminder.notificationId === null ? " (no programado)" : ""}
+            {(() => {
+              const reason = describeUnscheduledReason(
+                reminder.notificationId,
+                reminder.computedFireAt as Date,
+              );
+              return reason ? ` (no programado: ${formatUnscheduledReason(reason)})` : "";
+            })()}
           </Text>
           <TouchableOpacity disabled={busy} onPress={() => handleRemoveReminder(reminder.id)}>
             <Text style={styles.subtaskRemove}>Quitar</Text>

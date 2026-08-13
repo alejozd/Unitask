@@ -39,6 +39,30 @@ export function defaultReminder(): RelativeReminder {
   return { kind: "relative", offsetValue: 1, offsetUnit: "days" };
 }
 
+export type UnscheduledReason = "fire-time-in-past" | "permission-denied";
+
+/**
+ * A reminder with `notificationId: null` was never given an OS notification
+ * for one of two reasons: its fire time was already in the past at add/
+ * reschedule time (never even attempted), or the fire time was still in the
+ * future but the user had denied notification permission. Both are
+ * distinguishable after the fact from `computedFireAt` alone — no extra
+ * column needed. Returns null when the reminder IS scheduled.
+ */
+export function describeUnscheduledReason(
+  notificationId: string | null,
+  computedFireAt: Date,
+  now: Date = new Date(),
+): UnscheduledReason | null {
+  if (notificationId !== null) {
+    return null;
+  }
+  if (computedFireAt.getTime() <= now.getTime()) {
+    return "fire-time-in-past";
+  }
+  return "permission-denied";
+}
+
 export interface ReschedulableReminder {
   id: string;
   spec: ReminderSpec;

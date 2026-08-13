@@ -1,6 +1,7 @@
 import {
   computeFireAt,
   defaultReminder,
+  describeUnscheduledReason,
   rescheduleOnDueDateChange,
 } from "@/domain/reminder-scheduling";
 
@@ -41,6 +42,29 @@ describe("computeFireAt", () => {
 describe("defaultReminder", () => {
   it("returns a relative reminder of 1 day before", () => {
     expect(defaultReminder()).toEqual({ kind: "relative", offsetValue: 1, offsetUnit: "days" });
+  });
+});
+
+describe("describeUnscheduledReason", () => {
+  const now = new Date("2026-06-10T12:00:00.000Z");
+
+  it("returns null when a notification id is present (the reminder IS scheduled)", () => {
+    expect(
+      describeUnscheduledReason("some-os-id", new Date("2026-06-11T00:00:00.000Z"), now),
+    ).toBeNull();
+  });
+
+  it("returns fire-time-in-past when notificationId is null and the fire time is at or before now", () => {
+    expect(describeUnscheduledReason(null, new Date("2026-06-10T11:59:59.000Z"), now)).toBe(
+      "fire-time-in-past",
+    );
+    expect(describeUnscheduledReason(null, now, now)).toBe("fire-time-in-past");
+  });
+
+  it("returns permission-denied when notificationId is null but the fire time is still in the future", () => {
+    expect(describeUnscheduledReason(null, new Date("2026-06-11T00:00:00.000Z"), now)).toBe(
+      "permission-denied",
+    );
   });
 });
 

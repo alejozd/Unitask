@@ -3,7 +3,11 @@ import { useState } from "react";
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 import { colors } from "@/theme";
-import type { ReminderOffsetUnit, ReminderSpec } from "@/domain/reminder-scheduling";
+import type {
+  ReminderOffsetUnit,
+  ReminderSpec,
+  UnscheduledReason,
+} from "@/domain/reminder-scheduling";
 
 const OFFSET_UNITS: ReminderOffsetUnit[] = ["minutes", "hours", "days"];
 
@@ -24,6 +28,19 @@ export function formatReminderSpec(spec: ReminderSpec): string {
   const label = OFFSET_UNIT_LABELS[spec.offsetUnit];
   const unitText = spec.offsetValue === 1 ? label.singular : label.plural;
   return `${spec.offsetValue} ${unitText} antes`;
+}
+
+const UNSCHEDULED_REASON_LABELS: Record<UnscheduledReason, string> = {
+  "fire-time-in-past": "hora ya pasó",
+  "permission-denied": "permiso denegado",
+};
+
+/**
+ * Human-readable Spanish label for why a reminder has no OS notification
+ * scheduled, shared by every screen that lists persisted reminders.
+ */
+export function formatUnscheduledReason(reason: UnscheduledReason): string {
+  return UNSCHEDULED_REASON_LABELS[reason];
 }
 
 export interface ReminderPickerProps {
