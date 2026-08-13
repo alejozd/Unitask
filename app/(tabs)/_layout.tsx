@@ -18,11 +18,7 @@ export default function TabsLayout() {
         options={{
           title: "Tareas",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons
-              name="checkmark-circle-outline"
-              size={size}
-              color={color}
-            />
+            <Ionicons name="checkmark-circle-outline" size={size} color={color} />
           ),
         }}
       />
