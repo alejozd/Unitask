@@ -11,6 +11,7 @@ import { semesters } from "@/db/schema/semester";
 import { subjects } from "@/db/schema/subject";
 import { tasks } from "@/db/schema/task";
 import { subtasks } from "@/db/schema/subtask";
+import { attachments } from "@/db/schema/attachment";
 import { calculateTaskProgress } from "@/domain/task-progress";
 import { deriveTaskStatus, type TaskStatus } from "@/domain/task-status";
 import { colors, priorityColors, subjectPalette } from "@/theme";
@@ -52,8 +53,11 @@ export default function TareasScreen() {
   const { data: subtaskRows, updatedAt: subtasksUpdatedAt } = useLiveQuery(
     db.select().from(subtasks),
   );
+  const { data: attachmentRows, updatedAt: attachmentsUpdatedAt } = useLiveQuery(
+    db.select().from(attachments),
+  );
 
-  // Same `updatedAt !== undefined` pattern as app/_layout.tsx — all 4
+  // Same `updatedAt !== undefined` pattern as app/_layout.tsx — all 5
   // queries must have resolved at least once before "no tasks match this
   // filter" is a meaningful statement; otherwise the empty-filter message
   // flashes on every fresh mount before the live queries settle.
@@ -61,12 +65,21 @@ export default function TareasScreen() {
     semesterUpdatedAt !== undefined &&
     subjectsUpdatedAt !== undefined &&
     tasksUpdatedAt !== undefined &&
-    subtasksUpdatedAt !== undefined;
+    subtasksUpdatedAt !== undefined &&
+    attachmentsUpdatedAt !== undefined;
 
   // Tareas, like Materias, scopes to the active semester only — a closed
   // semester's tasks are historical/read-only and not part of "what do I
   // have to do" (same reasoning 03-business-rules.md §15 states explicitly
   // for the Dashboard's scope).
+  const attachmentCountByTaskId = new Map<string, number>();
+  for (const attachment of attachmentRows ?? []) {
+    attachmentCountByTaskId.set(
+      attachment.taskId,
+      (attachmentCountByTaskId.get(attachment.taskId) ?? 0) + 1,
+    );
+  }
+
   const enrichedTasks = (taskRows ?? [])
     .filter((task) => activeSubjectIds.has(task.subjectId))
     .map((task) => {
@@ -77,7 +90,13 @@ export default function TareasScreen() {
         dueDateTime: task.dueDateTime,
         progress,
       });
-      return { task, status, progress, subject: subjectsById.get(task.subjectId) };
+      return {
+        task,
+        status,
+        progress,
+        subject: subjectsById.get(task.subjectId),
+        attachmentCount: attachmentCountByTaskId.get(task.id) ?? 0,
+      };
     })
     .sort((a, b) => a.task.dueDateTime.getTime() - b.task.dueDateTime.getTime());
 
@@ -167,6 +186,11 @@ export default function TareasScreen() {
                     />
                     <Text style={styles.metaText}>{item.task.priority}</Text>
                   </View>
+                  {item.attachmentCount > 0 && (
+                    <View style={styles.metaChip}>
+                      <Text style={styles.metaText}>📎 {item.attachmentCount}</Text>
+                    </View>
+                  )}
                 </View>
                 <Text style={styles.cardStatus}>
                   {item.status} · {item.progress}%
