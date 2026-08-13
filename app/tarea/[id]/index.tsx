@@ -1,7 +1,7 @@
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { eq } from "drizzle-orm";
 import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -56,6 +56,15 @@ export default function DetalleDeTareaScreen() {
     db.select().from(reminders).where(eq(reminders.taskId, id)),
   );
   const taskReminders = reminderRows ?? [];
+
+  // Status is derived from the current time at render, never stored — a
+  // static screen has no other trigger to recompute it once the due date
+  // passes (same reasoning as the Tareas list tick).
+  const [, forceStatusRecompute] = useState(0);
+  useEffect(() => {
+    const intervalId = setInterval(() => forceStatusRecompute((tick) => tick + 1), 60_000);
+    return () => clearInterval(intervalId);
+  }, []);
 
   const [newSubtaskText, setNewSubtaskText] = useState("");
   const [busy, setBusy] = useState(false);

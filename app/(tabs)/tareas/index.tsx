@@ -1,7 +1,7 @@
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { eq } from "drizzle-orm";
 import { Link, router } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { db } from "@/db/client";
@@ -22,6 +22,16 @@ const FILTER_CHIPS: FilterChip[] = ["Todas", "Pendiente", "En progreso", "Comple
 export default function TareasScreen() {
   const [filter, setFilter] = useState<FilterChip>("Todas");
   const [completingId, setCompletingId] = useState<string | null>(null);
+
+  // Status (Pendiente/En progreso/Vencida) is derived from the current time
+  // at render, never stored — without this tick, a task sitting past its
+  // due date keeps showing its stale status until something else (e.g. a
+  // live query result) forces a re-render.
+  const [, forceStatusRecompute] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => forceStatusRecompute((tick) => tick + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const { data: activeSemesterRows, updatedAt: semesterUpdatedAt } = useLiveQuery(
     db.select({ id: semesters.id }).from(semesters).where(eq(semesters.status, "active")),
