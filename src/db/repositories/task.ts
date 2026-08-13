@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { db as defaultDb } from "@/db/client";
 import type { Database } from "@/db/repositories/semester";
 import { assertSubjectEditable, assertTaskEditable } from "@/db/repositories/task-access";
+import { deleteAttachmentFilesForTask } from "@/db/repositories/attachment";
 import {
   addReminder,
   cancelAllRemindersForTask,
@@ -140,9 +141,13 @@ export async function deleteTask(id: string, database: Database = defaultDb): Pr
   // to still exist to know their notificationIds.
   await cancelAllRemindersForTask(id, database);
 
-  // Subtasks and reminders cascade-delete automatically via ON DELETE
-  // CASCADE (Phase 1 schema) now that PRAGMA foreign_keys=ON is active
-  // on-device (Phase 2 Task 1) — no manual row cleanup needed here.
+  // Delete copied attachment files before the cascade-delete removes the
+  // attachment rows themselves — same ordering reason as reminders above.
+  await deleteAttachmentFilesForTask(id, database);
+
+  // Subtasks, reminders, and attachments cascade-delete automatically via
+  // ON DELETE CASCADE (Phase 1 schema) now that PRAGMA foreign_keys=ON is
+  // active on-device (Phase 2 Task 1) — no manual row cleanup needed here.
   await database.delete(tasks).where(eq(tasks.id, id));
 }
 

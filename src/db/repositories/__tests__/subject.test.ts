@@ -7,7 +7,9 @@ import * as schema from "@/db/schema";
 import { semesters } from "@/db/schema/semester";
 import { tasks } from "@/db/schema/task";
 import { reminders } from "@/db/schema/reminder";
+import { attachments } from "@/db/schema/attachment";
 import * as notifications from "@/lib/notifications";
+import * as files from "@/lib/files";
 import {
   SemesterReadOnlyError,
   SubjectDeletionBlockedError,
@@ -19,7 +21,9 @@ import {
 } from "@/db/repositories/subject";
 
 jest.mock("@/lib/notifications");
+jest.mock("@/lib/files");
 const mockedNotifications = jest.mocked(notifications);
+const mockedFiles = jest.mocked(files);
 
 function freshTestDb() {
   const sqlite = new Database(":memory:");
@@ -193,6 +197,37 @@ describe("subject repository", () => {
     expect(mockedNotifications.cancelReminderNotification).toHaveBeenCalledWith(
       "mock-notification-pending",
     );
+  });
+
+  it("deletes attachment files for tasks a subject-deletion cascade removes", async () => {
+    const db = freshTestDb();
+    const semesterId = await seedActiveSemester(db);
+    const subject = await createSubject({ name: "Física", color: "sky", semesterId }, db);
+
+    await db.insert(tasks).values({
+      id: "task-vencida",
+      title: "Tarea vencida",
+      subjectId: subject.id,
+      dueDateTime: new Date(Date.now() - 1000 * 60 * 60 * 24), // yesterday
+      priority: "Media",
+      completed: false,
+      completedLate: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    await db.insert(attachments).values({
+      id: "attachment-1",
+      taskId: "task-vencida",
+      originalFileName: "notas.pdf",
+      storedPath: "/fake/attachments/task-vencida/attachment-1-notas.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 1024,
+      createdAt: new Date(),
+    });
+
+    await deleteSubject(subject.id, db);
+
+    expect(mockedFiles.deleteAttachmentDirectoryForTask).toHaveBeenCalledWith("task-vencida");
   });
 
   it("listSubjectsForSemesterQuery returns only that semester's subjects, alphabetically", async () => {

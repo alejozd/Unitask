@@ -17,9 +17,12 @@ import {
   updateTask,
 } from "@/db/repositories/task";
 import * as notifications from "@/lib/notifications";
+import * as files from "@/lib/files";
 
 jest.mock("@/lib/notifications");
+jest.mock("@/lib/files");
 const mockedNotifications = jest.mocked(notifications);
+const mockedFiles = jest.mocked(files);
 
 function freshTestDb() {
   const sqlite = new Database(":memory:");
@@ -360,6 +363,19 @@ describe("task repository", () => {
     expect(mockedNotifications.cancelReminderNotification).toHaveBeenCalledWith(
       "mock-notification-1",
     );
+  });
+
+  it("deletes the task's attachment files", async () => {
+    const db = freshTestDb();
+    const { subjectId } = await seedActiveSemesterWithSubject(db);
+    const { task } = await createTask(
+      { title: "Con adjunto", subjectId, dueDateTime: future, priority: "Media" },
+      db,
+    );
+
+    await deleteTask(task.id, db);
+
+    expect(mockedFiles.deleteAttachmentDirectoryForTask).toHaveBeenCalledWith(task.id);
   });
 
   it("updating a task's due date reschedules its reminders and reports how many were removed", async () => {
