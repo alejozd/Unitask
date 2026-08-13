@@ -18,9 +18,15 @@ import {
   formatReminderSpec,
   formatUnscheduledReason,
 } from "@/components/ReminderPicker";
+import { AttachmentList, type AttachmentListItem } from "@/components/AttachmentList";
 import { db } from "@/db/client";
 import { deleteTask, completeTaskAction } from "@/db/repositories/task";
 import { addReminder, removeReminder, toReminderSpec } from "@/db/repositories/reminder";
+import {
+  addAttachment,
+  AttachmentValidationError,
+  removeAttachment,
+} from "@/db/repositories/attachment";
 import { SemesterReadOnlyError } from "@/db/repositories/subject";
 import {
   addSubtask,
@@ -33,9 +39,11 @@ import { reminders } from "@/db/schema/reminder";
 import { subjects } from "@/db/schema/subject";
 import { subtasks } from "@/db/schema/subtask";
 import { tasks } from "@/db/schema/task";
+import { attachments } from "@/db/schema/attachment";
 import { calculateTaskProgress } from "@/domain/task-progress";
 import { deriveTaskStatus } from "@/domain/task-status";
 import { describeUnscheduledReason, type ReminderSpec } from "@/domain/reminder-scheduling";
+import { openAttachment, type PickedDocument } from "@/lib/files";
 import { colors, priorityColors, subjectPalette } from "@/theme";
 
 function handleActionError(error: unknown, fallbackMessage: string) {
@@ -68,6 +76,10 @@ export default function DetalleDeTareaScreen() {
     db.select().from(reminders).where(eq(reminders.taskId, id)),
   );
   const taskReminders = reminderRows ?? [];
+  const { data: attachmentRows } = useLiveQuery(
+    db.select().from(attachments).where(eq(attachments.taskId, id)),
+  );
+  const taskAttachments = attachmentRows ?? [];
 
   // Status is derived from the current time at render, never stored — a
   // static screen has no other trigger to recompute it once the due date
@@ -187,6 +199,45 @@ export default function DetalleDeTareaScreen() {
       await removeReminder(reminderId);
     } catch (error) {
       handleActionError(error, "No se pudo eliminar el recordatorio.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handlePickAttachment(picked: PickedDocument) {
+    setBusy(true);
+    try {
+      await addAttachment(id, picked);
+    } catch (error) {
+      if (error instanceof AttachmentValidationError) {
+        Alert.alert(
+          "Archivo no válido",
+          error.reason === "size"
+            ? "El archivo supera el tamaño máximo permitido (25 MB)."
+            : "Ese tipo de archivo no está permitido.",
+        );
+      } else {
+        handleActionError(error, "No se pudo añadir el archivo.");
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleOpenAttachment(attachment: AttachmentListItem) {
+    try {
+      await openAttachment(attachment.storedPath, attachment.mimeType);
+    } catch {
+      Alert.alert("Error", "No se pudo abrir el archivo.");
+    }
+  }
+
+  async function handleRemoveAttachment(attachmentId: string) {
+    setBusy(true);
+    try {
+      await removeAttachment(attachmentId);
+    } catch (error) {
+      handleActionError(error, "No se pudo eliminar el archivo.");
     } finally {
       setBusy(false);
     }
@@ -367,6 +418,15 @@ export default function DetalleDeTareaScreen() {
           </View>
         ))}
         <ReminderPicker onAdd={handleAddReminder} />
+
+        <Text style={styles.sectionTitle}>Adjuntos</Text>
+        <AttachmentList
+          attachments={taskAttachments}
+          busy={busy}
+          onPick={handlePickAttachment}
+          onOpen={handleOpenAttachment}
+          onRemove={handleRemoveAttachment}
+        />
 
         <View style={styles.actions}>
           <TouchableOpacity
