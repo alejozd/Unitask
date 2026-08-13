@@ -30,7 +30,15 @@
       "expo-sqlite",
       "expo-asset",
       "@react-native-community/datetimepicker",
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": false,
+          "cameraPermission": "UniTask necesita acceder a la cámara para adjuntar fotos a tus tareas.",
+          "microphonePermission": false
+        }
+      ]
     ],
     "extra": {
       "router": {},

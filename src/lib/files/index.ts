@@ -1,4 +1,5 @@
 import * as DocumentPicker from "expo-document-picker";
+import * as ImagePicker from "expo-image-picker";
 import * as IntentLauncher from "expo-intent-launcher";
 import * as Sharing from "expo-sharing";
 import { Directory, File, Paths } from "expo-file-system";
@@ -31,6 +32,28 @@ export async function pickDocument(): Promise<PickedDocument | null> {
     uri: asset.uri,
     name: asset.name,
     mimeType: asset.mimeType ?? null,
+  };
+}
+
+/**
+ * Opens the system camera to take a photo. Requests camera permission
+ * lazily — only when the user presses the "Tomar foto" button, never
+ * proactively (same pattern as requestNotificationPermission, Phase 4).
+ * Returns null if permission was denied or the user cancelled — callers
+ * must not assume a non-null result.
+ */
+export async function takePhoto(): Promise<PickedDocument | null> {
+  const permission = await ImagePicker.requestCameraPermissionsAsync();
+  if (!permission.granted) return null;
+
+  const result = await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 1 });
+  if (result.canceled || !result.assets || result.assets.length === 0) return null;
+
+  const asset = result.assets[0];
+  return {
+    uri: asset.uri,
+    name: asset.fileName ?? `foto-${Date.now()}.jpg`,
+    mimeType: asset.mimeType ?? "image/jpeg",
   };
 }
 

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { pickDocument, type PickedDocument } from "@/lib/files";
+import { pickDocument, takePhoto, type PickedDocument } from "@/lib/files";
 import { colors } from "@/theme";
 
 /** Human-readable file size, shared by every screen that lists attachments. */
@@ -35,6 +35,7 @@ export function AttachmentList({
   onRemove,
 }: AttachmentListProps) {
   const [picking, setPicking] = useState(false);
+  const [takingPhoto, setTakingPhoto] = useState(false);
 
   async function handlePickPress() {
     setPicking(true);
@@ -43,6 +44,16 @@ export function AttachmentList({
       if (picked) onPick(picked);
     } finally {
       setPicking(false);
+    }
+  }
+
+  async function handleTakePhotoPress() {
+    setTakingPhoto(true);
+    try {
+      const picked = await takePhoto();
+      if (picked) onPick(picked);
+    } finally {
+      setTakingPhoto(false);
     }
   }
 
@@ -63,12 +74,19 @@ export function AttachmentList({
       ))}
       <TouchableOpacity
         style={styles.addButton}
-        disabled={busy || picking}
+        disabled={busy || picking || takingPhoto}
         onPress={handlePickPress}
       >
         <Text style={styles.addButtonText}>
           {picking ? "Abriendo selector…" : "Añadir archivo"}
         </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.addButton}
+        disabled={busy || picking || takingPhoto}
+        onPress={handleTakePhotoPress}
+      >
+        <Text style={styles.addButtonText}>{takingPhoto ? "Abriendo cámara…" : "Tomar foto"}</Text>
       </TouchableOpacity>
     </View>
   );
