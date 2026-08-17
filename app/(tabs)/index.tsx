@@ -11,23 +11,15 @@ import { settings } from "@/db/schema/settings";
 import { subjects } from "@/db/schema/subject";
 import { tasks } from "@/db/schema/task";
 import { subtasks } from "@/db/schema/subtask";
-import { buildDashboardSummary, greetingForHour, type DashboardEntry } from "@/domain/dashboard";
+import {
+  buildDashboardSummary,
+  greetingForHour,
+  isSameCalendarDay,
+  type DashboardEntry,
+} from "@/domain/dashboard";
 import { calculateTaskProgress } from "@/domain/task-progress";
 import { deriveTaskStatus } from "@/domain/task-status";
 import { colors, priorityColors, subjectPalette } from "@/theme";
-
-// Duplicated from src/domain/dashboard.ts's private helper of the same
-// name (not exported there — exporting it is Phase 7's own Task 1, a
-// separate, not-yet-executed change; this task must not touch
-// dashboard.ts's exports per Hard Constraint #1, so this 4-line helper is
-// intentionally duplicated here rather than imported).
-function isSameCalendarDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
-}
 
 export default function HomeScreen() {
   // Time-derived counts (Pendientes/Hoy/Tareas urgentes/Vencida labels) go

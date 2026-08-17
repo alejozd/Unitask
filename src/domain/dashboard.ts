@@ -28,7 +28,7 @@ export interface DashboardSummary {
   proximasEntregas: DashboardEntry[];
 }
 
-function isSameCalendarDay(a: Date, b: Date): boolean {
+export function isSameCalendarDay(a: Date, b: Date): boolean {
   return (
     a.getFullYear() === b.getFullYear() &&
     a.getMonth() === b.getMonth() &&
