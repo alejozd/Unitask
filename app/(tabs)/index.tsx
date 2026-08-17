@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { eq } from "drizzle-orm";
 import { router } from "expo-router";
@@ -14,11 +15,24 @@ import { calculateTaskProgress } from "@/domain/task-progress";
 import { deriveTaskStatus } from "@/domain/task-status";
 import { colors, priorityColors, subjectPalette } from "@/theme";
 
+// Duplicated from src/domain/dashboard.ts's private helper of the same
+// name (not exported there — exporting it is Phase 7's own Task 1, a
+// separate, not-yet-executed change; this task must not touch
+// dashboard.ts's exports per Hard Constraint #1, so this 4-line helper is
+// intentionally duplicated here rather than imported).
+function isSameCalendarDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
 export default function HomeScreen() {
-  // pendientesCount/hoyCount/urgentEntries are all derived from the current
-  // time at render (Vencida status, calendar-day match, the 48h window) —
-  // without this tick they go stale until the next useLiveQuery write, same
-  // as tareas/index.tsx's status recompute.
+  // Time-derived counts (Pendientes/Hoy/Tareas urgentes/Vencida labels) go
+  // stale without a recompute tick — same mechanism as tareas/index.tsx,
+  // added here after Phase 6's whole-branch review flagged its initial
+  // omission as an Important finding. Do not remove this.
   const [, forceStatusRecompute] = useState(0);
   useEffect(() => {
     const id = setInterval(() => forceStatusRecompute((tick) => tick + 1), 60_000);
@@ -45,10 +59,6 @@ export default function HomeScreen() {
     db.select().from(subtasks),
   );
 
-  // Same `updatedAt !== undefined` pattern as tareas/index.tsx — all 4
-  // queries must have resolved at least once before the dashboard's counts
-  // are meaningful; otherwise a fresh mount would briefly show "0 tareas"
-  // before the live queries settle.
   const loaded =
     semesterUpdatedAt !== undefined &&
     subjectsUpdatedAt !== undefined &&
@@ -56,8 +66,7 @@ export default function HomeScreen() {
     subtasksUpdatedAt !== undefined;
 
   // Dashboard, like Tareas and Materias, scopes to the active semester only
-  // (03-business-rules.md §15 states this explicitly) — a closed semester's
-  // tasks are historical/read-only and not part of "what do I have to do".
+  // (03-business-rules.md §15 states this explicitly).
   const enrichedTasks = (taskRows ?? [])
     .filter((task) => activeSubjectIds.has(task.subjectId))
     .map((task) => {
@@ -72,46 +81,128 @@ export default function HomeScreen() {
         task,
         status,
         progress,
+        completedSubtasks: taskSubtasks.filter((subtask) => subtask.completed).length,
+        totalSubtasks: taskSubtasks.length,
         subject: subjectsById.get(task.subjectId),
       };
-    })
-    .sort((a, b) => a.task.dueDateTime.getTime() - b.task.dueDateTime.getTime());
+    });
+
+  const enrichedByTaskId = new Map(enrichedTasks.map((entry) => [entry.task.id, entry]));
 
   const entries: DashboardEntry[] = enrichedTasks.map(({ task, status }) => ({ task, status }));
   const summary = buildDashboardSummary(entries);
   const greeting = greetingForHour(new Date().getHours());
+  const now = new Date();
 
-  function renderEntry(entry: DashboardEntry, withDueDate: boolean) {
-    const subject = subjectsById.get(entry.task.subjectId);
+  function formatDueLabel(entry: DashboardEntry): { text: string; isUrgent: boolean } {
+    const time = entry.task.dueDateTime.toLocaleTimeString("es", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    if (entry.status === "Vencida") {
+      return { text: `Venció · ${time}`, isUrgent: true };
+    }
+    if (isSameCalendarDay(entry.task.dueDateTime, now)) {
+      return { text: `Entrega hoy · ${time}`, isUrgent: true };
+    }
+    const date = entry.task.dueDateTime.toLocaleDateString("es", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+    });
+    return { text: `Entrega ${date} · ${time}`, isUrgent: false };
+  }
+
+  function renderUrgentCard(entry: DashboardEntry) {
+    const enriched = enrichedByTaskId.get(entry.task.id);
+    const dueLabel = formatDueLabel(entry);
     return (
       <TouchableOpacity
         key={entry.task.id}
-        style={withDueDate ? styles.listCard : styles.horizontalCard}
+        style={styles.urgentCard}
         onPress={() => router.push(`/tarea/${entry.task.id}`)}
       >
-        <Text style={styles.cardTitle} numberOfLines={2}>
+        {enriched?.subject && (
+          <View
+            style={[
+              styles.subjectChip,
+              { backgroundColor: subjectPalette[enriched.subject.color] },
+            ]}
+          >
+            <Text style={styles.subjectChipText}>{enriched.subject.name}</Text>
+          </View>
+        )}
+        <Text style={styles.urgentTitle} numberOfLines={2}>
           {entry.task.title}
         </Text>
-        <View style={styles.cardMetaRow}>
-          {subject && (
-            <View style={styles.metaChip}>
-              <View style={[styles.dot, { backgroundColor: subjectPalette[subject.color] }]} />
-              <Text style={styles.metaText}>{subject.name}</Text>
-            </View>
-          )}
-          <View style={styles.metaChip}>
-            <View style={[styles.dot, { backgroundColor: priorityColors[entry.task.priority] }]} />
-            <Text style={styles.metaText}>{entry.task.priority}</Text>
-          </View>
+        <View style={styles.dueRow}>
+          <Ionicons
+            name="time-outline"
+            size={14}
+            color={dueLabel.isUrgent ? colors.danger : colors.textMuted}
+          />
+          <Text style={[styles.dueText, dueLabel.isUrgent && styles.dueTextUrgent]}>
+            {dueLabel.text}
+          </Text>
         </View>
-        {withDueDate && (
-          <Text style={styles.dueDateText}>
-            {entry.task.dueDateTime.toLocaleString("es", {
-              dateStyle: "medium",
-              timeStyle: "short",
+        <View style={styles.priorityRow}>
+          <View style={[styles.dot, { backgroundColor: priorityColors[entry.task.priority] }]} />
+          <Text style={styles.priorityText}>{entry.task.priority}</Text>
+        </View>
+        {enriched && enriched.totalSubtasks > 0 && (
+          <View style={styles.progressSection}>
+            <View style={styles.progressTrack}>
+              <View style={[styles.progressFill, { width: `${enriched.progress}%` }]} />
+            </View>
+            <View style={styles.progressLabelRow}>
+              <Text style={styles.progressLabel}>Progreso: {enriched.progress}%</Text>
+              <Text style={styles.progressLabel}>
+                {enriched.completedSubtasks}/{enriched.totalSubtasks} partes
+              </Text>
+            </View>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  }
+
+  function renderProximaEntregaRow(entry: DashboardEntry) {
+    const enriched = enrichedByTaskId.get(entry.task.id);
+    return (
+      <TouchableOpacity
+        key={entry.task.id}
+        style={styles.proximaRow}
+        onPress={() => router.push(`/tarea/${entry.task.id}`)}
+      >
+        <View
+          style={[
+            styles.proximaIcon,
+            {
+              backgroundColor: enriched?.subject
+                ? subjectPalette[enriched.subject.color]
+                : colors.primary,
+            },
+          ]}
+        >
+          <Ionicons name="document-text-outline" size={18} color="#FFFFFF" />
+        </View>
+        <View style={styles.proximaBody}>
+          <Text style={styles.proximaTitle} numberOfLines={2}>
+            {entry.task.title}
+          </Text>
+          {enriched?.subject && <Text style={styles.proximaSubject}>{enriched.subject.name}</Text>}
+        </View>
+        <View style={styles.proximaDateBlock}>
+          <Text style={styles.proximaDate}>
+            {entry.task.dueDateTime.toLocaleDateString("es", { weekday: "long", day: "numeric" })}
+          </Text>
+          <Text style={styles.proximaTime}>
+            {entry.task.dueDateTime.toLocaleTimeString("es", {
+              hour: "2-digit",
+              minute: "2-digit",
             })}
           </Text>
-        )}
+        </View>
       </TouchableOpacity>
     );
   }
@@ -120,7 +211,7 @@ export default function HomeScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.header}>
         <Text style={styles.greeting}>{greeting}</Text>
-        <Text style={styles.title}>UniTask</Text>
+        <Text style={styles.subtitle}>Estas son tus tareas pendientes.</Text>
       </View>
 
       {!loaded ? (
@@ -129,39 +220,68 @@ export default function HomeScreen() {
         </View>
       ) : (
         <>
-          <View style={styles.statsRow}>
-            <View style={styles.statTile}>
-              <Text style={styles.statValue}>{summary.pendientesCount}</Text>
-              <Text style={styles.statLabel}>Pendientes</Text>
+          <View style={styles.kpiGrid}>
+            <View style={styles.kpiRow}>
+              <View style={styles.kpiCard}>
+                <View style={[styles.kpiIconCircle, { backgroundColor: colors.primaryTint }]}>
+                  <Ionicons name="list-outline" size={18} color={colors.primary} />
+                </View>
+                <Text style={styles.kpiValue}>{summary.pendientesCount}</Text>
+                <Text style={styles.kpiLabel}>PENDIENTES</Text>
+              </View>
+              <View style={[styles.kpiCard, summary.hoyCount > 0 && styles.kpiCardDanger]}>
+                <View
+                  style={[
+                    styles.kpiIconCircle,
+                    { backgroundColor: summary.hoyCount > 0 ? "#FFFFFF" : colors.dangerTint },
+                  ]}
+                >
+                  <Ionicons name="alert-circle-outline" size={18} color={colors.danger} />
+                </View>
+                <Text style={[styles.kpiValue, summary.hoyCount > 0 && styles.kpiValueOnDanger]}>
+                  {summary.hoyCount}
+                </Text>
+                <Text style={[styles.kpiLabel, summary.hoyCount > 0 && styles.kpiLabelOnDanger]}>
+                  HOY
+                </Text>
+              </View>
             </View>
-            <View style={styles.statTile}>
-              <Text style={styles.statValue}>{summary.hoyCount}</Text>
-              <Text style={styles.statLabel}>Hoy</Text>
-            </View>
-            <View style={styles.statTile}>
-              <Text style={styles.statValue}>{summary.completadasUltimos7DiasCount}</Text>
-              <Text style={styles.statLabel}>Completadas últimos 7 días</Text>
+            <View style={styles.kpiCardWide}>
+              <View style={[styles.kpiIconCircle, { backgroundColor: colors.primaryTint }]}>
+                <Ionicons name="checkmark-circle-outline" size={18} color={priorityColors.Baja} />
+              </View>
+              <View>
+                <Text style={styles.kpiValue}>{summary.completadasUltimos7DiasCount}</Text>
+                <Text style={styles.kpiLabel}>COMPLETADAS ESTA SEMANA</Text>
+              </View>
             </View>
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Tareas urgentes</Text>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Tareas urgentes</Text>
+            </View>
             {summary.urgentEntries.length === 0 ? (
-              <Text style={styles.emptyText}>No hay tareas urgentes.</Text>
+              <Text style={styles.emptyText}>Sin tareas urgentes por ahora. ¡Vas al día!</Text>
             ) : (
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {summary.urgentEntries.map((entry) => renderEntry(entry, false))}
+                {summary.urgentEntries.map(renderUrgentCard)}
               </ScrollView>
             )}
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Próximas entregas</Text>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Próximas entregas</Text>
+              <TouchableOpacity onPress={() => router.push("/tareas")}>
+                <Text style={styles.sectionLink}>Ver todas</Text>
+              </TouchableOpacity>
+            </View>
             {summary.proximasEntregas.length === 0 ? (
-              <Text style={styles.emptyText}>No tienes próximas entregas.</Text>
+              <Text style={styles.emptyText}>No tienes próximas entregas registradas.</Text>
             ) : (
               <View style={styles.verticalList}>
-                {summary.proximasEntregas.map((entry) => renderEntry(entry, true))}
+                {summary.proximasEntregas.map(renderProximaEntregaRow)}
               </View>
             )}
           </View>
@@ -173,50 +293,109 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: 20, gap: 20, paddingBottom: 40 },
-  header: { gap: 2 },
-  greeting: { fontSize: 15, color: colors.textMuted },
-  title: { fontSize: 22, fontWeight: "700", color: colors.text },
+  content: { padding: 20, gap: 24, paddingBottom: 40 },
+  header: { gap: 4 },
+  greeting: { fontSize: 22, fontWeight: "700", color: colors.text },
+  subtitle: { fontSize: 14, color: colors.textMuted },
   empty: { padding: 24, alignItems: "center" },
   emptyText: { color: colors.textMuted, textAlign: "center" },
-  statsRow: { flexDirection: "row", gap: 12 },
-  statTile: {
+
+  kpiGrid: { gap: 12 },
+  kpiRow: { flexDirection: "row", gap: 12 },
+  kpiCard: {
     flex: 1,
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: 12,
-    alignItems: "center",
-    gap: 4,
+    padding: 16,
+    gap: 8,
   },
-  statValue: { fontSize: 22, fontWeight: "700", color: colors.text },
-  statLabel: { fontSize: 12, color: colors.textMuted, textAlign: "center" },
-  section: { gap: 10 },
-  sectionTitle: { fontSize: 16, fontWeight: "600", color: colors.text },
-  horizontalCard: {
-    width: 200,
+  kpiCardDanger: { backgroundColor: colors.dangerTint, borderColor: colors.danger },
+  kpiCardWide: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 16,
+  },
+  kpiIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  kpiValue: { fontSize: 26, fontWeight: "700", color: colors.text },
+  kpiValueOnDanger: { color: colors.danger },
+  kpiLabel: { fontSize: 11, fontWeight: "600", color: colors.textMuted, letterSpacing: 0.4 },
+  kpiLabelOnDanger: { color: colors.danger },
+
+  section: { gap: 10 },
+  sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  sectionTitle: { fontSize: 16, fontWeight: "600", color: colors.text },
+  sectionLink: { fontSize: 13, fontWeight: "600", color: colors.primary },
+
+  urgentCard: {
+    width: 220,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
     padding: 14,
     gap: 8,
     marginRight: 12,
   },
-  listCard: {
-    backgroundColor: colors.surface,
+  subjectChip: {
+    alignSelf: "flex-start",
     borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  subjectChipText: { fontSize: 11, fontWeight: "600", color: "#FFFFFF" },
+  urgentTitle: { fontSize: 15, fontWeight: "600", color: colors.text },
+  dueRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  dueText: { fontSize: 12, color: colors.textMuted },
+  dueTextUrgent: { color: colors.danger, fontWeight: "600" },
+  priorityRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  dot: { width: 8, height: 8, borderRadius: 4 },
+  priorityText: { fontSize: 12, color: colors.textMuted },
+  progressSection: { gap: 4, marginTop: 4 },
+  progressTrack: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.primaryTint,
+    overflow: "hidden",
+  },
+  progressFill: { height: "100%", borderRadius: 3, backgroundColor: colors.primary },
+  progressLabelRow: { flexDirection: "row", justifyContent: "space-between" },
+  progressLabel: { fontSize: 11, color: colors.textMuted },
+
+  verticalList: { gap: 12 },
+  proximaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
     padding: 14,
-    gap: 8,
   },
-  verticalList: { gap: 12 },
-  cardTitle: { fontSize: 15, fontWeight: "600", color: colors.text },
-  cardMetaRow: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  metaChip: { flexDirection: "row", alignItems: "center", gap: 4 },
-  dot: { width: 8, height: 8, borderRadius: 4 },
-  metaText: { fontSize: 12, color: colors.textMuted },
-  dueDateText: { fontSize: 12, color: colors.textMuted },
+  proximaIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  proximaBody: { flex: 1, gap: 2 },
+  proximaTitle: { fontSize: 14, fontWeight: "600", color: colors.text },
+  proximaSubject: { fontSize: 12, color: colors.textMuted },
+  proximaDateBlock: { alignItems: "flex-end" },
+  proximaDate: { fontSize: 12, color: colors.text, textTransform: "capitalize" },
+  proximaTime: { fontSize: 12, color: colors.textMuted },
 });
