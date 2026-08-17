@@ -95,16 +95,29 @@ export default function CalendarioScreen() {
     };
   });
 
+  // Month navigation must also move selectedDate: without this, selectedDay
+  // (below) can resolve to undefined for a date that's off-screen in the new
+  // grid, silently degrading into a false "no tasks" empty state and leaving
+  // the "Añadir tarea" FAB targeting a stale, invisible date. Phase 7
+  // whole-branch review, finding I1.
+  function selectDefaultDateForMonth(year: number, month: number) {
+    const now = new Date();
+    const isCurrentMonth = year === now.getFullYear() && month === now.getMonth();
+    setSelectedDate(isCurrentMonth ? now : new Date(year, month, 1));
+  }
+
   function goToPreviousMonth() {
     const prev = new Date(viewYear, viewMonth - 1, 1);
     setViewYear(prev.getFullYear());
     setViewMonth(prev.getMonth());
+    selectDefaultDateForMonth(prev.getFullYear(), prev.getMonth());
   }
 
   function goToNextMonth() {
     const next = new Date(viewYear, viewMonth + 1, 1);
     setViewYear(next.getFullYear());
     setViewMonth(next.getMonth());
+    selectDefaultDateForMonth(next.getFullYear(), next.getMonth());
   }
 
   return (
