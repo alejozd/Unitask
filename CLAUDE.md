@@ -2,6 +2,16 @@
 
 ## Current Phase Status (updated 2026-08-17)
 
+**Phase 6.5 — Dashboard visual upgrade** (ad-hoc, human-directed, no plan doc) is **COMPLETE and pushed** to `origin/master`. Commit `ecdd49f`.
+
+- Single-commit UI upgrade of `app/(tabs)/index.tsx`, guided by `Documentacion/Design-stitch/{DESIGN.md,dashboard_unitask.png}` (structure/hierarchy only — colors translated to this project's real `@/theme` tokens, not the mockup's palette). New: KPI cards with icons (`@expo/vector-icons` Ionicons, already installed — no new dependency), "Hoy" tile highlighted red when count > 0 via one new theme token (`colors.dangerTint`, same `rgba(...)` pattern as `primaryTint`), rich urgentes carousel cards (subject chip, clock-icon due label, subtask progress bar + n/m count computed inline — no domain module changes), "Próximas entregas" rows with subject-colored icon + "Ver todas" link to `/tareas`, friendlier empty states. Zero domain logic added (`src/domain/dashboard.ts` diff-stat empty, independently verified by the reviewer), zero new dependencies, 60s `forceStatusRecompute` tick preserved, §18 priority-as-dot+text preserved.
+- Implementer first hit BLOCKED: the initial brief wrongly assumed `isSameCalendarDay` was already exported from `dashboard.ts` (it's still private — exporting it is Phase 7's own Task 1, not yet executed). Fixed by having the screen duplicate a local private copy instead; re-dispatched, completed.
+- Task review: spec ✅ with one confirmed gap (3 hardcoded `"#FFFFFF"` literals, verbatim from the brief's own code) — investigated and judged **not a regression**: `"#FFFFFF"` for white-text/icon-on-solid-color is a pre-existing, un-tokenized convention already used 15+ times across every other screen/phase in this codebase. Deferred as a fast-follow candidate (add a `colors.onColor` token and migrate all sites at once, not just these 3).
+- Also investigated (informational, not a defect): `npm run lint` fails repo-wide on ~110 CRLF errors in the untouched `src/domain/dashboard.ts` — confirmed via `git diff --stat` (empty) and blob-vs-working-tree byte comparison that this is a local Windows `core.autocrlf=true` working-tree materialization artifact, not a committed content issue. A `.gitattributes` (`eol=lf`) fix would prevent recurrence but was left as a separate, undecided infra choice rather than folded into this commit.
+- Final combined check: **162/162 tests (17 suites)**, `tsc` clean, `prettier` clean on the touched files.
+- On-device verification deferred to the human per their explicit instruction (not performed by any agent this round).
+- Full detail lives in `.superpowers/sdd/progress.md`'s "UniTask Phase 6.5" section.
+
 **Phase 6 — Dashboard/Home** (plan: `docs/superpowers/plans/2026-08-13-phase6-dashboard.md`) is **COMPLETE and pushed** to `origin/master`.
 
 - Tasks 1-2 (TDD), Task 3 (DoD verification), a whole-branch review, and a fix + scoped re-review are all done. Final HEAD after Phase 6: `2af05a8`.
@@ -35,4 +45,4 @@
 
 </details>
 
-**Phase 7 (Calendar, month view)** plan not yet written/approved.
+**Phase 7 (Calendar, month view)** plan written and presented (`docs/superpowers/plans/2026-08-17-phase7-calendar.md`), **not yet executed** — awaiting the human's explicit OK. Three additions already agreed with the human for when it executes: (1) use `Documentacion/Design-stitch/calendario_unitask.png` as visual guidance the same "guide, not spec" way Phase 6.5 used the dashboard mockup; (2) split verification so the human does on-device checks via a checklist rather than an agent spending emulator tokens; (3) run a whole-branch review at the end, same as every completed phase.
