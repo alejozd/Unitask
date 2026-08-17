@@ -1,6 +1,20 @@
 @AGENTS.md
 
-## Current Phase Status (updated 2026-08-13)
+## Current Phase Status (updated 2026-08-17)
+
+**Phase 6 — Dashboard/Home** (plan: `docs/superpowers/plans/2026-08-13-phase6-dashboard.md`) is **COMPLETE and pushed** to `origin/master`.
+
+- Tasks 1-2 (TDD), Task 3 (DoD verification), a whole-branch review, and a fix + scoped re-review are all done. Final HEAD after Phase 6: `2af05a8`.
+- Task-by-task summary:
+  1. `src/domain/dashboard.ts` — pure domain module (TDD), citing `03-business-rules.md` §15. Exports `buildDashboardSummary(entries, now?)` and `greetingForHour(hour)`. Resolved the §15 "Tareas urgentes" ambiguity (confirmed with the user, `AskUserQuestion`): one-sided `now < dueDateTime <= now + 48h` OR `priority === "Alta"` (Alta branch applies even if overdue), both branches excluding completed unconditionally. Also: "Hoy" = local calendar-day match + not completed (Vencida-today still counts); "Completadas últimos 7 días" = rolling window, inclusive at exactly 7 days, null-`completedAt`-safe; "Próximas entregas" = 5 nearest pending by `dueDateTime` ascending, no cutoff, includes Vencida.
+  2. `app/(tabs)/index.tsx` — replaced the placeholder Home tab. Reuses `tareas/index.tsx`'s exact active-semester → subjects → tasks/subtasks query pattern verbatim. Greeting + 3 stat tiles + horizontal "Tareas urgentes" list + vertical "Próximas entregas" list, all tappable to task detail. Priority always shown as color dot + text label (never color alone, §18 accessibility). Zero hardcoded hex — all via `@/theme`. No `.tsx` component test (matches this codebase's established convention).
+  3. **Task 3 (DoD verification):** found and fixed one unrelated pre-existing bug — `CLAUDE.md` itself failing `prettier --check` since the Phase 5 close-out commit, fixed in `be6a7ba`. On-device pass: stat tiles, próximas-entregas 5-cap/ordering, and tap-to-detail all PASS; 2 disclosed gaps verified via source instead of live device (no completed task existed on-device to test negative exclusion from urgentes; "no active semester" edge case skipped for data-safety reasons per Phase 5 Task 7 precedent) — both later independently re-confirmed safe by the whole-branch reviewer.
+- **Whole-branch review (opus):** "With fixes." 0 Critical, 2 Important, both fixed in one commit `2af05a8` and independently re-verified by a scoped re-review (opus): (1) the Home screen had no recompute tick, so time-derived widgets (Pendientes/Hoy/Tareas urgentes) went stale until the next DB write — the plan's "no live-updating clock" note only justified skipping this for the cosmetic greeting, not these three; **asked the user directly** (reverses written plan text), who chose to add the tick — now mirrors `tareas/index.tsx`'s existing 60s `forceStatusRecompute` mechanism verbatim; (2) `urgentEntries` had no explicit sort, an untested accidental ordering guarantee inherited from caller-side pre-sorting — now explicitly sorted ascending by `dueDateTime` in `buildDashboardSummary`, with a new test (overdue Alta ranks ahead of near-due Media) that the re-reviewer proved genuine by temporarily reverting the sort and watching the test fail. Minor findings (staleness/§15 doc wording/etc.) recorded in `.superpowers/sdd/progress.md`, deferred/non-blocking.
+- Final combined check: **162/162 tests (17 suites)**, `tsc`/`lint`/`prettier` all clean.
+- Full detail per task (implementer + reviewer findings) lives in `.superpowers/sdd/progress.md`'s "UniTask Phase 6" section — that ledger is the authoritative source if this summary and the ledger ever disagree (this block is a snapshot, the ledger is append-only and always current).
+
+<details>
+<summary>Phase 5 — Attachments (complete, prior phase)</summary>
 
 **Phase 5 — Attachments** (plan: `docs/superpowers/plans/2026-08-13-phase5-attachments.md`) is **COMPLETE and pushed** to `origin/master`.
 
@@ -19,4 +33,6 @@
 - Final combined check: **136/136 tests (16 suites)**, `tsc`/`lint`/`prettier` all clean.
 - Full detail per task (implementer + reviewer findings) lives in `.superpowers/sdd/progress.md`'s "UniTask Phase 5" section — that ledger is the authoritative source if this summary and the ledger ever disagree (this block is a snapshot, the ledger is append-only and always current).
 
-**Phase 6 (Dashboard/Home)** plan not yet written/approved — presented to the user for approval, not executed.
+</details>
+
+**Phase 7 (Calendar, month view)** plan not yet written/approved.
