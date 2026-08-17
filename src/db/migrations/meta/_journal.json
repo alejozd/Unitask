@@ -8,6 +8,13 @@
       "when": 1786465919209,
       "tag": "0000_sloppy_newton_destine",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1786987913343,
+      "tag": "0001_pretty_speed",
+      "breakpoints": true
     }
   ]
 }
