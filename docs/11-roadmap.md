@@ -123,6 +123,24 @@ No phase in this roadmap has been executed yet — this discovery phase produced
 
 **Test expectations**: unit tests for each widget's selector/query function against fixture task sets covering edge cases (e.g. a task exactly 48h out, a low-priority task due tomorrow, completions exactly 7 days old).
 
+**Addendum (2026-08-17):** Phase 6.5 (ad-hoc visual upgrade, no separate plan doc) restyled this screen — KPI cards with icons, a richer urgentes carousel with subtask progress, próximas-entregas rows with subject-colored icons — reusing the same selectors, zero new domain logic. See `CLAUDE.md`'s Current Phase Status for detail.
+
+---
+
+## Phase 6.6 — Minimal profile
+
+**Objective**: a minimal, storage-backed user profile so the Dashboard's greeting can address the student by name — added ad-hoc after Phase 6.5's visual upgrade surfaced a "Hola, {nombre}" greeting in the design mockup with no backing data to show.
+
+**Features included**: a new storage table for exactly two optional fields — apodo (nickname) and nombre completo (full name) — nothing else; a minimal "Configuración" screen, reached via a gear icon on the Dashboard, with both fields and a save action; the Home screen's greeting uses the apodo when set ("Buenas tardes, {apodo}"), falling back to the existing generic greeting when it isn't.
+
+**Explicitly deferred to Phase 9 (Settings) or later** — and only once a concrete feature actually needs them, not speculatively: email, phone/mobile number, avatar/photo. None of these have a consuming feature yet (no auth, no cloud sync, no email/SMS notifications) — collecting them now would be speculative data collection with no product use, against this project's YAGNI discipline.
+
+**Key files/modules**: one new `src/db/schema/*.ts` table + matching repository, a migration following Phase 1's pattern; `app/configuracion/index.tsx`. **Note the file-path overlap with Phase 9 below**: Phase 9's plan already reserves `app/configuracion/index.tsx` for its own, larger Settings screen (export/import). Phase 6.6 is the seed of that same screen, not a separate one — Phase 9 extends this file (adds an export/import section) rather than creating a new screen from scratch.
+
+**Dependencies**: Phase 1 (migrations pattern), Phase 6 (Dashboard, to host the greeting + gear icon).
+
+**Test expectations**: TDD for the storage layer (repository CRUD for the profile row, matching Phase 1/2's repository test conventions). No new domain/business-rule logic in this phase beyond that.
+
 ---
 
 ## Phase 7 — Calendar (month view)
@@ -161,9 +179,9 @@ No phase in this roadmap has been executed yet — this discovery phase produced
 
 **Objective**: minimal Settings screen and the manual backup safety net.
 
-**Features included**: Settings screen (gear icon target) with "Exportar datos" and "Importar datos" only (no theme section, no notification section, per `01-product.md`/`03-business-rules.md`); export flow (serialize → `expo-sharing`); import flow (pick → validate → overwrite-confirmation dialog → full replace) per `03-business-rules.md` §14 and `04-user-flows.md` flows 6–7.
+**Features included**: Settings screen (gear icon target) with "Exportar datos" and "Importar datos" only (no theme section, no notification section, per `01-product.md`/`03-business-rules.md`); export flow (serialize → `expo-sharing`); import flow (pick → validate → overwrite-confirmation dialog → full replace) per `03-business-rules.md` §14 and `04-user-flows.md` flows 6–7. Also the natural point to reconsider Phase 6.6's explicitly-deferred profile fields (email, phone/mobile, avatar) — only if a concrete feature by then actually needs one of them.
 
-**Key files/modules**: `app/configuracion/index.tsx`, `src/features/settings/`, export/import serialization functions in `src/domain` or `src/db`.
+**Key files/modules**: `app/configuracion/index.tsx` (extends Phase 6.6's minimal profile screen — same file, do not create a second Settings screen), `src/features/settings/`, export/import serialization functions in `src/domain` or `src/db`.
 
 **Dependencies**: Phases 1–5 (all entities must exist to be exportable/importable).
 
@@ -177,7 +195,7 @@ No phase in this roadmap has been executed yet — this discovery phase produced
 
 **Objective**: polish pass across the whole app, closing out MVP scope.
 
-**Features included**: empty-state UI for every list/screen (no subjects yet, no tasks yet, etc.); destructive-action confirmation dialogs standardized across delete task/subject/subtask, close semester, and import-overwrite (`03-business-rules.md` §13); accessibility pass (48px touch targets, Android font-scaling support, priority shown with icon+label not color alone); audit of `src/theme` token usage to ensure no hardcoded hex values remain in component code, so a future dark theme is a token-file change only.
+**Features included**: empty-state UI for every list/screen (no subjects yet, no tasks yet, etc.); destructive-action confirmation dialogs standardized across delete task/subject/subtask, close semester, and import-overwrite (`03-business-rules.md` §13); accessibility pass (48px touch targets, Android font-scaling support, priority shown with icon+label not color alone); audit of `src/theme` token usage to ensure no hardcoded hex values remain in component code, so a future dark theme is a token-file change only — **known backlog item for this audit (from Phase 6.5, 2026-08-17):** `"#FFFFFF"` is hardcoded ~18 times across `TaskForm.tsx`, `SubjectForm.tsx`, every tab's FAB text, every primary-button text, and the Phase 6.5 dashboard cards — never tokenized in any phase to date. Add a `colors.onColor`/`onPrimary` token and migrate all sites at once here, rather than piecemeal.
 
 **Key files/modules**: cuts across `src/components`, `src/features/**`, `src/theme/`.
 
