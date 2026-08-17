@@ -127,32 +127,36 @@ export default function HomeScreen() {
         style={styles.urgentCard}
         onPress={() => router.push(`/tarea/${entry.task.id}`)}
       >
-        {enriched?.subject && (
-          <View
-            style={[
-              styles.subjectChip,
-              { backgroundColor: subjectPalette[enriched.subject.color] },
-            ]}
-          >
-            <Text style={styles.subjectChipText}>{enriched.subject.name}</Text>
-          </View>
-        )}
-        <Text style={styles.urgentTitle} numberOfLines={2}>
-          {entry.task.title}
-        </Text>
-        <View style={styles.dueRow}>
-          <Ionicons
-            name="time-outline"
-            size={14}
-            color={dueLabel.isUrgent ? colors.danger : colors.textMuted}
-          />
-          <Text style={[styles.dueText, dueLabel.isUrgent && styles.dueTextUrgent]}>
-            {dueLabel.text}
+        <View style={styles.urgentRow}>
+          {enriched?.subject && (
+            <View
+              style={[
+                styles.subjectChip,
+                { backgroundColor: subjectPalette[enriched.subject.color] },
+              ]}
+            >
+              <Text style={styles.subjectChipText}>{enriched.subject.name}</Text>
+            </View>
+          )}
+          <Text style={styles.urgentTitle} numberOfLines={1}>
+            {entry.task.title}
           </Text>
         </View>
-        <View style={styles.priorityRow}>
-          <View style={[styles.dot, { backgroundColor: priorityColors[entry.task.priority] }]} />
-          <Text style={styles.priorityText}>{entry.task.priority}</Text>
+        <View style={styles.urgentRow}>
+          <View style={styles.priorityRow}>
+            <View style={[styles.dot, { backgroundColor: priorityColors[entry.task.priority] }]} />
+            <Text style={styles.priorityText}>{entry.task.priority}</Text>
+          </View>
+          <View style={styles.dueRow}>
+            <Ionicons
+              name="time-outline"
+              size={14}
+              color={dueLabel.isUrgent ? colors.danger : colors.textMuted}
+            />
+            <Text style={[styles.dueText, dueLabel.isUrgent && styles.dueTextUrgent]}>
+              {dueLabel.text}
+            </Text>
+          </View>
         </View>
         {enriched && enriched.totalSubtasks > 0 && (
           <View style={styles.progressSection}>
@@ -234,40 +238,44 @@ export default function HomeScreen() {
         </View>
       ) : (
         <>
-          <View style={styles.kpiGrid}>
-            <View style={styles.kpiRow}>
-              <View style={styles.kpiCard}>
+          <View style={styles.kpiRow}>
+            <View style={styles.kpiCard}>
+              <View style={styles.kpiTopRow}>
                 <View style={[styles.kpiIconCircle, { backgroundColor: colors.primaryTint }]}>
-                  <Ionicons name="list-outline" size={18} color={colors.primary} />
+                  <Ionicons name="list-outline" size={16} color={colors.primary} />
                 </View>
                 <Text style={styles.kpiValue}>{summary.pendientesCount}</Text>
-                <Text style={styles.kpiLabel}>PENDIENTES</Text>
               </View>
-              <View style={[styles.kpiCard, summary.hoyCount > 0 && styles.kpiCardDanger]}>
+              <Text style={styles.kpiLabel}>PENDIENTES</Text>
+            </View>
+
+            <View style={[styles.kpiCard, summary.hoyCount > 0 && styles.kpiCardDanger]}>
+              <View style={styles.kpiTopRow}>
                 <View
                   style={[
                     styles.kpiIconCircle,
                     { backgroundColor: summary.hoyCount > 0 ? "#FFFFFF" : colors.dangerTint },
                   ]}
                 >
-                  <Ionicons name="alert-circle-outline" size={18} color={colors.danger} />
+                  <Ionicons name="alert-circle-outline" size={16} color={colors.danger} />
                 </View>
                 <Text style={[styles.kpiValue, summary.hoyCount > 0 && styles.kpiValueOnDanger]}>
                   {summary.hoyCount}
                 </Text>
-                <Text style={[styles.kpiLabel, summary.hoyCount > 0 && styles.kpiLabelOnDanger]}>
-                  HOY
-                </Text>
               </View>
+              <Text style={[styles.kpiLabel, summary.hoyCount > 0 && styles.kpiLabelOnDanger]}>
+                HOY
+              </Text>
             </View>
-            <View style={styles.kpiCardWide}>
-              <View style={[styles.kpiIconCircle, { backgroundColor: colors.primaryTint }]}>
-                <Ionicons name="checkmark-circle-outline" size={18} color={priorityColors.Baja} />
-              </View>
-              <View>
+
+            <View style={styles.kpiCard}>
+              <View style={styles.kpiTopRow}>
+                <View style={[styles.kpiIconCircle, { backgroundColor: colors.primaryTint }]}>
+                  <Ionicons name="checkmark-circle-outline" size={16} color={priorityColors.Baja} />
+                </View>
                 <Text style={styles.kpiValue}>{summary.completadasUltimos7DiasCount}</Text>
-                <Text style={styles.kpiLabel}>COMPLETADAS ESTA SEMANA</Text>
               </View>
+              <Text style={styles.kpiLabel}>COMPLETADAS ESTA SEMANA</Text>
             </View>
           </View>
 
@@ -316,38 +324,28 @@ const styles = StyleSheet.create({
   empty: { padding: 24, alignItems: "center" },
   emptyText: { color: colors.textMuted, textAlign: "center" },
 
-  kpiGrid: { gap: 12 },
-  kpiRow: { flexDirection: "row", gap: 12 },
+  kpiRow: { flexDirection: "row", gap: 10 },
   kpiCard: {
     flex: 1,
     backgroundColor: colors.surface,
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: 16,
-    gap: 8,
+    padding: 12,
+    gap: 6,
   },
   kpiCardDanger: { backgroundColor: colors.dangerTint, borderColor: colors.danger },
-  kpiCardWide: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 16,
-  },
+  kpiTopRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   kpiIconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
   },
-  kpiValue: { fontSize: 26, fontWeight: "700", color: colors.text },
+  kpiValue: { fontSize: 22, fontWeight: "700", color: colors.text },
   kpiValueOnDanger: { color: colors.danger },
-  kpiLabel: { fontSize: 11, fontWeight: "600", color: colors.textMuted, letterSpacing: 0.4 },
+  kpiLabel: { fontSize: 10, fontWeight: "600", color: colors.textMuted, letterSpacing: 0.3 },
   kpiLabelOnDanger: { color: colors.danger },
 
   section: { gap: 10 },
@@ -358,21 +356,26 @@ const styles = StyleSheet.create({
   urgentCard: {
     width: 220,
     backgroundColor: colors.surface,
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: 14,
+    padding: 12,
     gap: 8,
     marginRight: 12,
   },
+  urgentRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
   subjectChip: {
-    alignSelf: "flex-start",
     borderRadius: 12,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
   subjectChipText: { fontSize: 11, fontWeight: "600", color: "#FFFFFF" },
-  urgentTitle: { fontSize: 15, fontWeight: "600", color: colors.text },
+  urgentTitle: { flex: 1, fontSize: 14, fontWeight: "600", color: colors.text, textAlign: "right" },
   dueRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   dueText: { fontSize: 12, color: colors.textMuted },
   dueTextUrgent: { color: colors.danger, fontWeight: "600" },
