@@ -2,6 +2,22 @@
 
 ## Current Phase Status (updated 2026-08-17)
 
+**Phase 7 — Calendar (month view)** (plan: `docs/superpowers/plans/2026-08-17-phase7-calendar.md`) is **COMPLETE and pushed** to `origin/master`. Commits `976459e` (Task 1: domain) → `9ce6c22` (Task 2: day panel) → `3ec921e` (Task 3: FAB + pre-fill) → `be9a20b` (Task 4: screen wiring) → `e980328` (whole-branch review fix).
+
+- Task-by-task summary:
+  1. `src/domain/calendar.ts` — pure domain module (TDD), citing `03-business-rules.md` §16. `buildCalendarMonth(entries, year, month)` builds a Monday-first grid with leading/trailing adjacent-month days; one priority dot per distinct priority present per day (Alta > Media > Baja, deduped, capped at 3 — resolves §16's explicitly-open assumption); day entries include ALL tasks regardless of completion (unlike the Dashboard's §15 widgets, which explicitly exclude completed). Also exported the previously-private `isSameCalendarDay` from `src/domain/dashboard.ts` and removed the local duplicate that Phase 6.5/6.6 had added to `app/(tabs)/index.tsx` (that duplicate existed specifically because this export wasn't done yet).
+  2. `src/components/CalendarDayPanel.tsx` — presentational day-panel component + a "N Pendiente(s)" count badge (visual cue from `calendario_unitask.png`, "guía no spec"). First of exactly 2 permitted `.tsx` component tests this phase (a scoped, human-approved exception to this codebase's usual "no `.tsx` tests" convention) — worked with zero RTL/Jest friction.
+  3. `src/components/CalendarAddTaskFab.tsx` + a `dueDate` route-param extension to `app/tarea/nueva.tsx` — the FAB passes the calendar's currently-selected day as an ISO string; `nueva.tsx` parses it (with a `Number.isNaN` guard against malformed input) and pre-fills `TaskForm`'s `initialValues.dueDate`. Second and final permitted component test.
+  4. `app/(tabs)/calendario/index.tsx` — full screen: month grid with a Monday-first weekday-letter header (L M M J V S D, from the mockup), filled-circle selected-day styling (from the mockup), month navigation, inline day panel (never navigates away from Calendario), the FAB. Reuses `tareas/index.tsx`'s exact active-semester query pattern; ships with the 60s `forceStatusRecompute` tick from the start (Phase 6 had to add this after the fact — Phase 7 didn't repeat that miss).
+  5. **Task 5 (DoD)**: automated combined check only — per this phase's explicit verification split, no agent drove an emulator. Wrote `.superpowers/sdd/phase7-device-checklist.md` for the human's own on-device pass.
+- **Whole-branch review (opus)**: "With fixes." 0 Critical, 1 Important — month navigation (`goToPreviousMonth`/`goToNextMonth`) didn't reset `selectedDate`, so after changing months the day panel could show a stale date and a **false "no tasks" empty state** for a day that actually had tasks, with the "Añadir tarea" FAB silently targeting an off-screen day. Fixed in `e980328` (new `selectDefaultDateForMonth` helper: today if the newly-viewed month is the real current month, else the 1st of that month). The scoped re-review (opus) independently confirmed the fix by simulating **4,896 month navigations** across 612 months (2000–2050) and 6 timezones (incl. DST edge cases) from a from-scratch reimplementation — zero failures. Also updated the device checklist's step 7 to specifically ask the human to check this exact thing. 3 Minor findings deferred to backlog (a now-unreachable-but-latent `?? []` fallback; `selectDefaultDateForMonth` has no automated test despite being cheap `.ts` coverage, not `.tsx`-budget-constrained; a month round-trip discards an in-month selection by design, not a bug).
+- **Visual guidance ("guía, no spec")**: adopted from `calendario_unitask.png` — the weekday header row and the "N Pendientes" badge. Deliberately NOT adopted, disclosed as intentional: the Mes/Semana/Día toggle (week/day view is an explicit fast-follow, not this phase), a checkbox/quick-complete-from-calendar (new behavior beyond Phase 7's roadmap scope), a priority-only color stripe (would violate §18 on its own).
+- Final combined check: **179/179 tests (21 suites)**, `tsc`/`lint`/`prettier` all clean.
+- Full detail per task (implementer + reviewer findings) lives in `.superpowers/sdd/progress.md`'s "UniTask Phase 7" section.
+
+<details>
+<summary>BLOQUE 0 + Phase 6.6 + 6.5b + 6.5c (complete, prior ad-hoc round)</summary>
+
 **BLOQUE 0 (hygiene) + Phase 6.6 (Minimal profile) + 6.5b (compact dashboard layout) + 6.5c (KPI grid layout)** — all **COMPLETE and pushed** to `origin/master`. Commits `5a0f593` (hygiene) → `0b20daa` (Task 1: storage) → `c56de00` (Task 2: UI) → `40b614a` (6.5b: card layout) → `7025a0c` (6.5c: grid layout).
 
 - **BLOQUE 0**: added `.gitattributes` (`* text=auto eol=lf`) and renormalized the working tree — fixes the CRLF/`npm run lint` issue noted below in Phase 6.5's entry (that issue is now resolved, not just documented). Also registered in `docs/11-roadmap.md`: Phase 6.6's scope, the Phase 9 deferral of email/phone/avatar, and a Phase 10 backlog item to tokenize the ~18 hardcoded `#FFFFFF` occurrences.
@@ -12,7 +28,9 @@
 - **6.5c — KPI grid layout** (separate ad-hoc commit, pure UI, requested right after 6.5b): restructured the outer KPI grid from 6.5b's 3-equal-column row back to a 2-row layout matching `dashboard_unitask.png` (Pendientes + Hoy 50/50 in row 1, Completadas full-width in row 2), while keeping 6.5b's inner icon-left+value-right/label-below layout uniformly across all 3 cards. New `kpiCardFull` style (no `flex: 1` — a column-direction parent's default stretch already gives full width). All labels capped at `numberOfLines={2}`. One-line fit for "COMPLETADAS ESTA SEMANA" verified via character-width estimation (not a device render, per the human's "no gastes tokens en emulador" instruction): ~133–145dp needed vs. ~256dp+ available even on the narrowest realistic device.
 - All 4 task reviews (Task 1, Task 2, 6.5b, 6.5c) came back spec ✅ / quality approved with 0 Critical/Important findings (a few disclosed, non-blocking Minors on Tasks 1/6.5b only — see `.superpowers/sdd/progress.md`'s "Phase 6.6"/"6.5c" sections for detail).
 - Final combined check: **166/166 tests (18 suites)**, `tsc`/`lint`/`prettier` all clean (lint is genuinely clean now, not just clean-on-the-diff — BLOQUE 0 fixed the repo-wide CRLF issue).
-- On-device verification deferred to the human per their explicit instruction — this now covers Task 1/2, 6.5b, and 6.5c together. **Awaiting their OK before Phase 7 (BLOQUE 2) begins.**
+- On-device verification deferred to the human per their explicit instruction — covered Task 1/2, 6.5b, and 6.5c together. The human confirmed "todo ok" and gave the go-ahead for Phase 7 (BLOQUE 2), which is now also complete (see above).
+
+</details>
 
 <details>
 <summary>Phase 6.5 — Dashboard visual upgrade (complete, prior ad-hoc round)</summary>
@@ -62,4 +80,4 @@
 
 </details>
 
-**Phase 7 (Calendar, month view)** plan written and presented (`docs/superpowers/plans/2026-08-17-phase7-calendar.md`), **not yet executed** — awaiting the human's explicit OK (BLOQUE 2). Four additions already agreed with the human for when it executes: (1) use `Documentacion/Design-stitch/calendario_unitask.png` + `DESIGN.md` as visual guidance the same "guide, not spec" way Phase 6.5 used the dashboard mockup; (2) split verification so the human does on-device checks via a checklist rather than an agent spending emulator tokens; (3) run a whole-branch review at the end, same as every completed phase; (4) in Task 1, actually **export** `isSameCalendarDay` from `src/domain/dashboard.ts` and delete the local private duplicate that Phase 6.5/6.6 added to `app/(tabs)/index.tsx` (that duplicate existed specifically because this export was Phase 7's job, not done yet — Phase 7 now closes that loop).
+**Phase 8 (Progress screen)** plan not yet written/approved.
