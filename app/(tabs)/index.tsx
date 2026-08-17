@@ -7,6 +7,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-nati
 
 import { db } from "@/db/client";
 import { semesters } from "@/db/schema/semester";
+import { settings } from "@/db/schema/settings";
 import { subjects } from "@/db/schema/subject";
 import { tasks } from "@/db/schema/task";
 import { subtasks } from "@/db/schema/subtask";
@@ -59,6 +60,9 @@ export default function HomeScreen() {
     db.select().from(subtasks),
   );
 
+  const { data: profileRows } = useLiveQuery(db.select().from(settings).limit(1));
+  const nickname = profileRows?.[0]?.nickname;
+
   const loaded =
     semesterUpdatedAt !== undefined &&
     subjectsUpdatedAt !== undefined &&
@@ -91,7 +95,8 @@ export default function HomeScreen() {
 
   const entries: DashboardEntry[] = enrichedTasks.map(({ task, status }) => ({ task, status }));
   const summary = buildDashboardSummary(entries);
-  const greeting = greetingForHour(new Date().getHours());
+  const greetingBase = greetingForHour(new Date().getHours());
+  const greeting = nickname ? `${greetingBase}, ${nickname}` : greetingBase;
   const now = new Date();
 
   function formatDueLabel(entry: DashboardEntry): { text: string; isUrgent: boolean } {
@@ -210,8 +215,17 @@ export default function HomeScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.header}>
-        <Text style={styles.greeting}>{greeting}</Text>
-        <Text style={styles.subtitle}>Estas son tus tareas pendientes.</Text>
+        <View style={styles.headerText}>
+          <Text style={styles.greeting}>{greeting}</Text>
+          <Text style={styles.subtitle}>Estas son tus tareas pendientes.</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.settingsButton}
+          onPress={() => router.push("/configuracion")}
+          accessibilityLabel="Configuración"
+        >
+          <Ionicons name="settings-outline" size={24} color={colors.textMuted} />
+        </TouchableOpacity>
       </View>
 
       {!loaded ? (
@@ -294,7 +308,9 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: 20, gap: 24, paddingBottom: 40 },
-  header: { gap: 4 },
+  header: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
+  headerText: { flex: 1, gap: 4 },
+  settingsButton: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
   greeting: { fontSize: 22, fontWeight: "700", color: colors.text },
   subtitle: { fontSize: 14, color: colors.textMuted },
   empty: { padding: 24, alignItems: "center" },
