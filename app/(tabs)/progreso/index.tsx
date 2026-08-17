@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { eq } from "drizzle-orm";
-import { StyleSheet, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { db } from "@/db/client";
 import { semesters } from "@/db/schema/semester";
@@ -15,6 +16,16 @@ import { deriveTaskStatus } from "@/domain/task-status";
 import { colors, priorityColors, subjectPalette } from "@/theme";
 
 export default function ProgresoScreen() {
+  // Status (Pendiente/En progreso/Vencida) is derived from the current time
+  // at render, never stored — without this tick, a task sitting past its
+  // due date keeps showing its stale status until something else (e.g. a
+  // live query result) forces a re-render.
+  const [, forceStatusRecompute] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => forceStatusRecompute((tick) => tick + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
   const { data: activeSemesterRows, updatedAt: semesterUpdatedAt } = useLiveQuery(
     db.select({ id: semesters.id }).from(semesters).where(eq(semesters.status, "active")),
   );
@@ -90,7 +101,7 @@ export default function ProgresoScreen() {
         <Text style={styles.title}>Tu Progreso</Text>
       </View>
 
-      <View style={styles.content}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <View style={styles.overallCard}>
           <Text style={styles.overallTitle}>Rendimiento General</Text>
           <Text style={styles.overallValue}>{summary.overallCompletionRate}%</Text>
@@ -183,7 +194,7 @@ export default function ProgresoScreen() {
           </View>
           <Text style={styles.encouragementText}>{message}</Text>
         </View>
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -195,7 +206,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
   emptyText: { color: colors.textMuted, textAlign: "center" },
   emptyStateText: { color: colors.textMuted, textAlign: "center", fontSize: 15 },
-  content: { padding: 20, paddingTop: 0, gap: 20 },
+  content: { padding: 20, paddingTop: 0, paddingBottom: 40, gap: 20 },
 
   overallCard: {
     backgroundColor: colors.surface,
