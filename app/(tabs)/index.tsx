@@ -238,44 +238,53 @@ export default function HomeScreen() {
         </View>
       ) : (
         <>
-          <View style={styles.kpiRow}>
-            <View style={styles.kpiCard}>
-              <View style={styles.kpiTopRow}>
-                <View style={[styles.kpiIconCircle, { backgroundColor: colors.primaryTint }]}>
-                  <Ionicons name="list-outline" size={16} color={colors.primary} />
+          <View style={styles.kpiGrid}>
+            <View style={styles.kpiRow}>
+              <View style={styles.kpiCard}>
+                <View style={styles.kpiTopRow}>
+                  <View style={[styles.kpiIconCircle, { backgroundColor: colors.primaryTint }]}>
+                    <Ionicons name="list-outline" size={16} color={colors.primary} />
+                  </View>
+                  <Text style={styles.kpiValue}>{summary.pendientesCount}</Text>
                 </View>
-                <Text style={styles.kpiValue}>{summary.pendientesCount}</Text>
-              </View>
-              <Text style={styles.kpiLabel}>PENDIENTES</Text>
-            </View>
-
-            <View style={[styles.kpiCard, summary.hoyCount > 0 && styles.kpiCardDanger]}>
-              <View style={styles.kpiTopRow}>
-                <View
-                  style={[
-                    styles.kpiIconCircle,
-                    { backgroundColor: summary.hoyCount > 0 ? "#FFFFFF" : colors.dangerTint },
-                  ]}
-                >
-                  <Ionicons name="alert-circle-outline" size={16} color={colors.danger} />
-                </View>
-                <Text style={[styles.kpiValue, summary.hoyCount > 0 && styles.kpiValueOnDanger]}>
-                  {summary.hoyCount}
+                <Text style={styles.kpiLabel} numberOfLines={2}>
+                  PENDIENTES
                 </Text>
               </View>
-              <Text style={[styles.kpiLabel, summary.hoyCount > 0 && styles.kpiLabelOnDanger]}>
-                HOY
-              </Text>
+
+              <View style={[styles.kpiCard, summary.hoyCount > 0 && styles.kpiCardDanger]}>
+                <View style={styles.kpiTopRow}>
+                  <View
+                    style={[
+                      styles.kpiIconCircle,
+                      { backgroundColor: summary.hoyCount > 0 ? "#FFFFFF" : colors.dangerTint },
+                    ]}
+                  >
+                    <Ionicons name="alert-circle-outline" size={16} color={colors.danger} />
+                  </View>
+                  <Text style={[styles.kpiValue, summary.hoyCount > 0 && styles.kpiValueOnDanger]}>
+                    {summary.hoyCount}
+                  </Text>
+                </View>
+                <Text
+                  style={[styles.kpiLabel, summary.hoyCount > 0 && styles.kpiLabelOnDanger]}
+                  numberOfLines={2}
+                >
+                  HOY
+                </Text>
+              </View>
             </View>
 
-            <View style={styles.kpiCard}>
+            <View style={styles.kpiCardFull}>
               <View style={styles.kpiTopRow}>
                 <View style={[styles.kpiIconCircle, { backgroundColor: colors.primaryTint }]}>
                   <Ionicons name="checkmark-circle-outline" size={16} color={priorityColors.Baja} />
                 </View>
                 <Text style={styles.kpiValue}>{summary.completadasUltimos7DiasCount}</Text>
               </View>
-              <Text style={styles.kpiLabel}>COMPLETADAS ESTA SEMANA</Text>
+              <Text style={styles.kpiLabel} numberOfLines={2}>
+                COMPLETADAS ESTA SEMANA
+              </Text>
             </View>
           </View>
 
@@ -324,9 +333,18 @@ const styles = StyleSheet.create({
   empty: { padding: 24, alignItems: "center" },
   emptyText: { color: colors.textMuted, textAlign: "center" },
 
+  kpiGrid: { gap: 10 },
   kpiRow: { flexDirection: "row", gap: 10 },
   kpiCard: {
     flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 12,
+    gap: 6,
+  },
+  kpiCardFull: {
     backgroundColor: colors.surface,
     borderRadius: 14,
     borderWidth: 1,
