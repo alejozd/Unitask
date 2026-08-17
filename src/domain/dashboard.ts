@@ -66,16 +66,18 @@ export function buildDashboardSummary(
     return completedAtMs >= now.getTime() - SEVEN_DAYS_MS && completedAtMs <= now.getTime();
   }).length;
 
-  const urgentEntries = entries.filter((entry) => {
-    if (entry.task.completed) {
-      return false;
-    }
-    if (entry.task.priority === "Alta") {
-      return true;
-    }
-    const dueMs = entry.task.dueDateTime.getTime();
-    return dueMs > now.getTime() && dueMs <= now.getTime() + URGENT_WINDOW_MS;
-  });
+  const urgentEntries = entries
+    .filter((entry) => {
+      if (entry.task.completed) {
+        return false;
+      }
+      if (entry.task.priority === "Alta") {
+        return true;
+      }
+      const dueMs = entry.task.dueDateTime.getTime();
+      return dueMs > now.getTime() && dueMs <= now.getTime() + URGENT_WINDOW_MS;
+    })
+    .sort((a, b) => a.task.dueDateTime.getTime() - b.task.dueDateTime.getTime());
 
   const proximasEntregas = entries
     .filter((entry) => !entry.task.completed)

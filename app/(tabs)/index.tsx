@@ -1,6 +1,7 @@
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { eq } from "drizzle-orm";
 import { router } from "expo-router";
+import { useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { db } from "@/db/client";
@@ -14,6 +15,16 @@ import { deriveTaskStatus } from "@/domain/task-status";
 import { colors, priorityColors, subjectPalette } from "@/theme";
 
 export default function HomeScreen() {
+  // pendientesCount/hoyCount/urgentEntries are all derived from the current
+  // time at render (Vencida status, calendar-day match, the 48h window) —
+  // without this tick they go stale until the next useLiveQuery write, same
+  // as tareas/index.tsx's status recompute.
+  const [, forceStatusRecompute] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => forceStatusRecompute((tick) => tick + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
   const { data: activeSemesterRows, updatedAt: semesterUpdatedAt } = useLiveQuery(
     db.select({ id: semesters.id }).from(semesters).where(eq(semesters.status, "active")),
   );

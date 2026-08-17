@@ -151,6 +151,20 @@ describe("buildDashboardSummary", () => {
       expect(result.urgentEntries.map((e) => e.task.id)).toEqual(["t"]);
     });
 
+    it("sorts by dueDateTime ascending, independent of caller order (overdue Alta ahead of near-due Media)", () => {
+      const entries: DashboardEntry[] = [
+        entry({ id: "media-soon", priority: "Media", dueDateTime: hoursFromNow(10) }, "Pendiente"),
+        entry({ id: "alta-overdue", priority: "Alta", dueDateTime: hoursFromNow(-5) }, "Vencida"),
+        entry({ id: "alta-later", priority: "Alta", dueDateTime: hoursFromNow(30) }, "Pendiente"),
+      ];
+      const result = buildDashboardSummary(entries, now);
+      expect(result.urgentEntries.map((e) => e.task.id)).toEqual([
+        "alta-overdue",
+        "media-soon",
+        "alta-later",
+      ]);
+    });
+
     it("excludes a completed task that would otherwise match either condition", () => {
       const entries: DashboardEntry[] = [
         entry(
