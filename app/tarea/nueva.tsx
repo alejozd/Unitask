@@ -1,6 +1,6 @@
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { eq } from "drizzle-orm";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useState, type ReactNode } from "react";
 import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -36,6 +36,11 @@ export default function NuevaTareaScreen() {
     .sort((a, b) => a.name.localeCompare(b.name, "es"));
 
   const loaded = semesterUpdatedAt !== undefined && subjectsUpdatedAt !== undefined;
+
+  const { dueDate: dueDateParam } = useLocalSearchParams<{ dueDate?: string }>();
+  const parsedDueDate = dueDateParam ? new Date(dueDateParam) : undefined;
+  const initialDueDate =
+    parsedDueDate && !Number.isNaN(parsedDueDate.getTime()) ? parsedDueDate : undefined;
 
   const [subtaskTexts, setSubtaskTexts] = useState<string[]>([]);
   const [newSubtaskText, setNewSubtaskText] = useState("");
@@ -140,6 +145,7 @@ export default function NuevaTareaScreen() {
     content = (
       <TaskForm
         subjects={activeSubjects as TaskFormSubjectOption[]}
+        initialValues={initialDueDate ? { dueDate: initialDueDate } : undefined}
         submitLabel="Crear tarea"
         onSubmit={handleSubmit}
         footer={
