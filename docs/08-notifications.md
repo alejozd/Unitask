@@ -19,12 +19,25 @@ Each Reminder record (see `06-data-model.md`) maps to at most one scheduled OS n
 
 ## Exact-alarm considerations (Android 12+)
 
-Android 12+ introduced tighter rules around exact alarms (`SCHEDULE_EXACT_ALARM` / `USE_EXACT_ALARM`). Whether UniTask's reminders need exact-alarm privileges depends on which `expo-notifications` trigger type is used at implementation time:
+Android 12+ introduced tighter rules around exact alarms (`SCHEDULE_EXACT_ALARM` / `USE_EXACT_ALARM`). UniTask deliberately uses the standard (non-exact) `SchedulableTriggerInputTypes.DATE` trigger (`src/lib/notifications/index.ts`'s `scheduleReminderNotification`) specifically to avoid needing this permission — see that function's own doc comment.
 
-- If reminders are scheduled using a **calendar/date trigger** with second-level precision expectations, exact-alarm permission handling may be required on Android 12+.
-- If a slightly-inexact fire time (typical OS-batched delivery window) is acceptable for reminder-style notifications, the standard (non-exact) trigger avoids needing this permission entirely.
+**Verified on a real device (Phase 10.5 fast-follow, Samsung A35 / Android 16):** this tradeoff has a real, user-visible cost, not just a theoretical one. A reminder with a short offset (1–2 minutes before the due time) was observed firing at the task's *due time* instead of the requested offset time. This was investigated end to end (`src/domain/reminder-scheduling.ts`'s `computeFireAt`, `src/lib/notifications/index.ts`'s `scheduleReminderNotification`, and every call site of both) and confirmed NOT to be a code defect:
 
-**This must be verified against the current Expo SDK's notification trigger documentation at implementation time** — this document intentionally does not fabricate a specific trigger API or permission declaration, since Expo's notification APIs and Android's exact-alarm rules have both evolved across SDK/OS versions. Flag as an implementation-phase verification task (see `11-roadmap.md`, Phase 4).
+- `computeFireAt` correctly returns a time strictly before `dueDateTime` for a relative reminder — covered by dedicated regression tests in `src/domain/__tests__/reminder-scheduling.test.ts` reproducing the exact 1-minute and 2-minute offsets from the report.
+- There is exactly one place in the whole codebase that calls `Notifications.scheduleNotificationAsync` per reminder (`scheduleReminderNotification`, called from `addReminder` and `rescheduleRemindersForTask`) — no second "due time" notification exists anywhere for a reminder's own identifier to collide with. `src/lib/notifications/__tests__/index.test.ts` regression-locks that the trigger's `date` is bound to the computed fire time, never to the task's raw `dueDateTime` (which only ever appears in the notification body text).
+
+The actual cause is Android's own non-exact `AlarmManager` batching: without `SCHEDULE_EXACT_ALARM`, the OS is free to deliver the notification within a batching window rather than at the precise requested moment, and OEM battery-optimization layers (Samsung OneUI's "Sleeping apps" / adaptive battery in particular) can widen that window further for background apps. With only a 1–2 minute offset, that slack is large enough to make the notification arrive indistinguishably close to the due time.
+
+**This is a known, accepted tradeoff, not a bug to silently fix** — closing this gap for real would mean requesting `SCHEDULE_EXACT_ALARM`/`USE_EXACT_ALARM` and switching to an exact trigger, which is a native/config-plugin change (a new Android permission, `app.json` plugin config, a rebuild) — out of scope for a fast-follow that is explicitly UI/config-only. Left as an explicit decision for a future phase: request exact-alarm privileges, or keep documenting the non-exact tradeoff (and possibly surface it in reminder-offset UI copy for very short offsets).
+
+## Known OEM caveats — Samsung heads-up display
+
+`ensureReminderChannel` (`src/lib/notifications/index.ts`) creates the `reminders-v2` channel at `AndroidImportance.HIGH`, which is the correct and sufficient signal on stock Android for heads-up (banner) display. On Samsung's OneUI, this can still not be enough on its own:
+
+- OneUI's per-app notification screen has its own "Emergentes" / pop-up notification style toggle, which in some OneUI versions and battery-optimization states can suppress the heads-up banner even for a `HIGH`-importance channel.
+- Samsung's "Poner las aplicaciones en reposo" (adaptive battery / sleeping apps) can restrict a backgrounded app's alarms and notifications entirely unless the app is explicitly exempted.
+
+If heads-up still doesn't appear after confirming the channel itself shows as "Alta" importance in Android's notification settings, check (and, if needed, document for users): **Ajustes → Notificaciones → UniTask → Recordatorios de tareas → Emergentes**, and **Ajustes → Batería → Uso en segundo plano → No optimizar/permitir para UniTask**. This is a device-settings gap, not something `ensureReminderChannel` can force from JS.
 
 ## No iOS 64-pending-notification-limit handling
 

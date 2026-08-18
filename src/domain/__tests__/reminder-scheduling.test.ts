@@ -32,6 +32,30 @@ describe("computeFireAt", () => {
     expect(fireAt).toEqual(new Date("2026-06-10T11:45:00.000Z"));
   });
 
+  // Phase 10.5 fast-follow: on a real device (Samsung A35, Android 16), a
+  // reminder with a short minutes offset was observed firing at the task's
+  // due time instead of at the offset time. These two cases reproduce the
+  // exact offsets from that report (1 minute before a 10:15 due time, 2
+  // minutes before a 10:20 due time) and prove `computeFireAt` itself
+  // returns a time strictly before `dueDateTime`, never equal to it — the
+  // pure math is not the defect. (Root-caused instead to Android's
+  // non-exact AlarmManager batching window, which this codebase already
+  // knowingly accepted — see docs/08-notifications.md's "Exact-alarm
+  // considerations" section, both before and after this investigation.)
+  it("computes a 1-minute-before offset as strictly before the due time, not equal to it", () => {
+    const due = new Date("2026-06-10T10:15:00.000Z");
+    const fireAt = computeFireAt({ kind: "relative", offsetValue: 1, offsetUnit: "minutes" }, due);
+    expect(fireAt).toEqual(new Date("2026-06-10T10:14:00.000Z"));
+    expect(fireAt.getTime()).toBeLessThan(due.getTime());
+  });
+
+  it("computes a 2-minute-before offset as strictly before the due time, not equal to it", () => {
+    const due = new Date("2026-06-10T10:20:00.000Z");
+    const fireAt = computeFireAt({ kind: "relative", offsetValue: 2, offsetUnit: "minutes" }, due);
+    expect(fireAt).toEqual(new Date("2026-06-10T10:18:00.000Z"));
+    expect(fireAt.getTime()).toBeLessThan(due.getTime());
+  });
+
   it("returns the fixed datetime unchanged for a fixed reminder", () => {
     const fixedDateTime = new Date("2026-06-05T09:00:00.000Z");
     const fireAt = computeFireAt({ kind: "fixed", fixedDateTime }, dueDateTime);
