@@ -57,14 +57,14 @@ export default function EditarTareaScreen() {
 
   if (!task) {
     return (
-      <SafeAreaView style={styles.center} edges={["top"]}>
+      <SafeAreaView style={styles.center} edges={["top", "bottom"]}>
         <Text>Cargando…</Text>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
         <Text style={styles.backButtonText}>← Volver</Text>
       </TouchableOpacity>
