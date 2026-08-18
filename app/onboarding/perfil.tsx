@@ -31,6 +31,10 @@ export default function OnboardingPerfilScreen() {
       <Text style={styles.body}>
         Puedes cambiar esto más tarde desde Configuración. Este paso es opcional.
       </Text>
+      <Text style={styles.hint}>
+        Consejo: si quieres que tus recordatorios lleguen puntuales, activa las alarmas exactas en
+        Configuración → Puntualidad.
+      </Text>
       <TextInput
         style={styles.input}
         placeholder="Apodo (ej. Ale)"
@@ -69,6 +73,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.textMuted,
     lineHeight: 22,
+  },
+  hint: {
+    fontSize: 13,
+    color: colors.textMuted,
+    lineHeight: 18,
+    fontStyle: "italic",
   },
   input: {
     borderWidth: 1,

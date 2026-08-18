@@ -4,6 +4,7 @@ import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "reac
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as DocumentPicker from "expo-document-picker";
 import * as Sharing from "expo-sharing";
+import * as IntentLauncher from "expo-intent-launcher";
 import { File, Paths } from "expo-file-system";
 import Constants from "expo-constants";
 
@@ -126,6 +127,42 @@ export default function ConfiguracionScreen() {
     }
   }
 
+  // Phase 10.6: neither settings screen can be opened without knowing the
+  // app's own package name — read from app.json via expo-constants (already
+  // used above for the version string), not hardcoded, so it stays correct
+  // if the package id ever changes.
+  const androidPackage = Constants.expoConfig?.android?.package;
+
+  async function handleOpenExactAlarmSettings() {
+    try {
+      await IntentLauncher.startActivityAsync(
+        "android.settings.REQUEST_SCHEDULE_EXACT_ALARM",
+        androidPackage ? { data: `package:${androidPackage}` } : undefined,
+      );
+    } catch {
+      Alert.alert("No disponible", "Tu dispositivo no permite abrir esta pantalla de ajustes.");
+    }
+  }
+
+  async function handleOpenBatteryOptimizationSettings() {
+    // Unlike the exact-alarm screen above, Android requires this intent's
+    // data URI to specify the target package — there is no "show it for the
+    // current app" fallback, so without a resolvable package id there's
+    // nothing valid to launch.
+    if (!androidPackage) {
+      Alert.alert("No disponible", "No se pudo determinar el paquete de la app.");
+      return;
+    }
+    try {
+      await IntentLauncher.startActivityAsync(
+        "android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
+        { data: `package:${androidPackage}` },
+      );
+    } catch {
+      Alert.alert("No disponible", "Tu dispositivo no permite abrir esta pantalla de ajustes.");
+    }
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
@@ -185,6 +222,23 @@ export default function ConfiguracionScreen() {
               <Text style={styles.secondaryButtonText}>
                 {importing ? "Importando…" : "Importar datos"}
               </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.dataSection}>
+            <Text style={styles.sectionTitle}>Puntualidad</Text>
+            <Text style={styles.sectionNote}>
+              Android puede retrasar los recordatorios con poca antelación (menos de 5 minutos) para
+              ahorrar batería. Activa estas opciones para recibirlos a tiempo.
+            </Text>
+            <TouchableOpacity style={styles.secondaryButton} onPress={handleOpenExactAlarmSettings}>
+              <Text style={styles.secondaryButtonText}>Activar alarmas exactas</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.secondaryButton}
+              onPress={handleOpenBatteryOptimizationSettings}
+            >
+              <Text style={styles.secondaryButtonText}>Excluir de optimización de batería</Text>
             </TouchableOpacity>
           </View>
 

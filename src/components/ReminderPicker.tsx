@@ -55,6 +55,18 @@ export function ReminderPicker({ onAdd }: ReminderPickerProps) {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
 
+  // Phase 10.6: purely a display heuristic, not a live permission check —
+  // expo-notifications exposes no JS-level way to ask Android whether exact
+  // alarms are currently granted, so this shows unconditionally for any
+  // short relative offset rather than only when it would actually matter.
+  const offsetValue = parseInt(offsetValueText, 10);
+  const isShortOffset =
+    kind === "relative" &&
+    offsetUnit === "minutes" &&
+    Number.isFinite(offsetValue) &&
+    offsetValue > 0 &&
+    offsetValue < 5;
+
   function handleAdd() {
     if (kind === "relative") {
       const offsetValue = parseInt(offsetValueText, 10);
@@ -111,6 +123,12 @@ export function ReminderPicker({ onAdd }: ReminderPickerProps) {
               </TouchableOpacity>
             ))}
           </View>
+          {isShortOffset && (
+            <Text style={styles.shortOffsetWarning}>
+              Con menos de 5 minutos de antelación, Android puede retrasar la entrega. Actívalo en
+              Configuración → Puntualidad.
+            </Text>
+          )}
         </View>
       ) : (
         <View style={styles.fixedRow}>
@@ -209,6 +227,7 @@ const styles = StyleSheet.create({
   unitChipSelected: { borderColor: colors.primary, backgroundColor: colors.primaryTint },
   unitChipText: { fontSize: 12, color: colors.textMuted },
   unitChipTextSelected: { color: colors.primary, fontWeight: "600" },
+  shortOffsetWarning: { fontSize: 12, color: colors.textMuted, fontStyle: "italic" },
   fixedRow: { flexDirection: "row", gap: 8 },
   fixedButton: {
     borderWidth: 1,
