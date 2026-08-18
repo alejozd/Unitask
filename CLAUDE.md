@@ -116,4 +116,4 @@
 
 </details>
 
-**Phase 10 (Empty states, confirmations, accessibility, theming cleanup)** — not yet planned.
+**Phase 10 (Empty states, confirmations, accessibility, theming cleanup)** — plan written (`docs/superpowers/plans/2026-08-17-phase10-polish.md`), **not yet approved/executed**. This is the last MVP phase (0-10). A pre-planning audit found most of the roadmap's stated scope already done by prior phases (4/5 §13 confirmations, empty states on 7/8 screens, priority dot+text everywhere, icon touch-targets already closed by this session's gear-icon fix) — the plan targets 3 real verified gaps: missing subtask-delete confirmation, 25 hardcoded hex sites needing a new `colors.onColor` token, and a defensive empty state on Semestres.
