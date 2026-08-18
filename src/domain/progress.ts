@@ -96,15 +96,48 @@ export function buildProgressSummary(
 const HIGH_PERFORMANCE_THRESHOLD = 80;
 const MID_PERFORMANCE_THRESHOLD = 50;
 
-export function encouragementMessage(overallCompletionRate: number, totalCount: number): string {
-  if (totalCount === 0) {
-    return "Aún no tienes tareas registradas. ¡Empieza creando tu primera tarea!";
-  }
-  if (overallCompletionRate >= HIGH_PERFORMANCE_THRESHOLD) {
-    return "¡Excelente ritmo! Sigue así.";
-  }
-  if (overallCompletionRate >= MID_PERFORMANCE_THRESHOLD) {
-    return "¡Vas por buen camino! Tómate un respiro antes de continuar con tus pendientes.";
-  }
-  return "Aún te queda camino por recorrer, pero cada tarea completada suma. ¡Tú puedes!";
+// Phase 9.5: each range is a pool of 2-3 variants (this plan's own
+// assumption on wording/count) instead of one fixed string, so the same
+// range doesn't always show the identical message on every visit.
+const NO_TASKS_MESSAGES = [
+  "Aún no tienes tareas registradas. ¡Empieza creando tu primera tarea!",
+  "Tu semestre está listo para comenzar. ¡Agrega tu primera tarea!",
+];
+const HIGH_PERFORMANCE_MESSAGES = [
+  "¡Excelente ritmo! Sigue así.",
+  "¡Vas muy bien! Tu constancia se nota.",
+  "¡Impresionante! Estás dominando tus tareas.",
+];
+const MID_PERFORMANCE_MESSAGES = [
+  "¡Vas por buen camino! Tómate un respiro antes de continuar con tus pendientes.",
+  "Buen avance. Sigue empujando tus pendientes.",
+];
+const LOW_PERFORMANCE_MESSAGES = [
+  "Aún te queda camino por recorrer, pero cada tarea completada suma. ¡Tú puedes!",
+  "Un paso a la vez. Cada tarea que completes cuenta.",
+  "No te desanimes, siempre puedes retomar el ritmo.",
+];
+
+/**
+ * `random` defaults to `Math.random` but is injectable so tests can force
+ * a specific pool index instead of asserting on real randomness. Clamped
+ * to the pool's last index so a boundary value of exactly 1 (never
+ * produced by `Math.random` itself, but a test double could pass it)
+ * can't index past the end of the array.
+ */
+export function encouragementMessage(
+  overallCompletionRate: number,
+  totalCount: number,
+  random: () => number = Math.random,
+): string {
+  const pool =
+    totalCount === 0
+      ? NO_TASKS_MESSAGES
+      : overallCompletionRate >= HIGH_PERFORMANCE_THRESHOLD
+        ? HIGH_PERFORMANCE_MESSAGES
+        : overallCompletionRate >= MID_PERFORMANCE_THRESHOLD
+          ? MID_PERFORMANCE_MESSAGES
+          : LOW_PERFORMANCE_MESSAGES;
+  const index = Math.min(Math.floor(random() * pool.length), pool.length - 1);
+  return pool[index];
 }

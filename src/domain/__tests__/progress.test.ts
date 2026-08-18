@@ -133,32 +133,77 @@ describe("buildProgressSummary", () => {
 });
 
 describe("encouragementMessage", () => {
-  it("shows a no-tasks-yet message when totalCount is 0, regardless of the (always-0) rate", () => {
-    expect(encouragementMessage(0, 0)).toBe(
-      "Aún no tienes tareas registradas. ¡Empieza creando tu primera tarea!",
+  // Phase 9.5: each range now has a pool of 2-3 messages, chosen via an
+  // injectable `random` function (defaults to Math.random) so tests can
+  // force a specific pick instead of asserting on real randomness.
+  const NO_TASKS_MESSAGES = [
+    "Aún no tienes tareas registradas. ¡Empieza creando tu primera tarea!",
+    "Tu semestre está listo para comenzar. ¡Agrega tu primera tarea!",
+  ];
+  const HIGH_PERFORMANCE_MESSAGES = [
+    "¡Excelente ritmo! Sigue así.",
+    "¡Vas muy bien! Tu constancia se nota.",
+    "¡Impresionante! Estás dominando tus tareas.",
+  ];
+  const MID_PERFORMANCE_MESSAGES = [
+    "¡Vas por buen camino! Tómate un respiro antes de continuar con tus pendientes.",
+    "Buen avance. Sigue empujando tus pendientes.",
+  ];
+  const LOW_PERFORMANCE_MESSAGES = [
+    "Aún te queda camino por recorrer, pero cada tarea completada suma. ¡Tú puedes!",
+    "Un paso a la vez. Cada tarea que completes cuenta.",
+    "No te desanimes, siempre puedes retomar el ritmo.",
+  ];
+
+  it("picks the first pool entry when random() returns 0, for each range", () => {
+    expect(encouragementMessage(0, 0, () => 0)).toBe(NO_TASKS_MESSAGES[0]);
+    expect(encouragementMessage(90, 10, () => 0)).toBe(HIGH_PERFORMANCE_MESSAGES[0]);
+    expect(encouragementMessage(60, 10, () => 0)).toBe(MID_PERFORMANCE_MESSAGES[0]);
+    expect(encouragementMessage(20, 10, () => 0)).toBe(LOW_PERFORMANCE_MESSAGES[0]);
+  });
+
+  it("picks the last pool entry when random() returns just under 1, for each range", () => {
+    expect(encouragementMessage(0, 0, () => 0.999)).toBe(
+      NO_TASKS_MESSAGES[NO_TASKS_MESSAGES.length - 1],
+    );
+    expect(encouragementMessage(90, 10, () => 0.999)).toBe(
+      HIGH_PERFORMANCE_MESSAGES[HIGH_PERFORMANCE_MESSAGES.length - 1],
+    );
+    expect(encouragementMessage(60, 10, () => 0.999)).toBe(
+      MID_PERFORMANCE_MESSAGES[MID_PERFORMANCE_MESSAGES.length - 1],
+    );
+    expect(encouragementMessage(20, 10, () => 0.999)).toBe(
+      LOW_PERFORMANCE_MESSAGES[LOW_PERFORMANCE_MESSAGES.length - 1],
     );
   });
 
-  it("shows a high-performance message at and above 80% (with at least one task)", () => {
-    expect(encouragementMessage(80, 10)).toBe("¡Excelente ritmo! Sigue así.");
-    expect(encouragementMessage(100, 5)).toBe("¡Excelente ritmo! Sigue así.");
-  });
-
-  it("shows a mid-performance message between 50% and 79%", () => {
-    expect(encouragementMessage(50, 10)).toBe(
-      "¡Vas por buen camino! Tómate un respiro antes de continuar con tus pendientes.",
-    );
-    expect(encouragementMessage(79, 10)).toBe(
-      "¡Vas por buen camino! Tómate un respiro antes de continuar con tus pendientes.",
+  it("clamps a random() of exactly 1 to the last pool entry instead of going out of bounds", () => {
+    expect(encouragementMessage(90, 10, () => 1)).toBe(
+      HIGH_PERFORMANCE_MESSAGES[HIGH_PERFORMANCE_MESSAGES.length - 1],
     );
   });
 
-  it("shows a low-performance encouragement message below 50% when there IS at least one task (0% with real tasks differs from 0 tasks tracked)", () => {
-    expect(encouragementMessage(0, 3)).toBe(
-      "Aún te queda camino por recorrer, pero cada tarea completada suma. ¡Tú puedes!",
-    );
-    expect(encouragementMessage(49, 10)).toBe(
-      "Aún te queda camino por recorrer, pero cada tarea completada suma. ¡Tú puedes!",
-    );
+  it("selects a middle entry for a mid-range random() value (proves real index math, not always first/last)", () => {
+    // 3-item pool, random() = 0.5 -> floor(0.5 * 3) = index 1
+    expect(encouragementMessage(90, 10, () => 0.5)).toBe(HIGH_PERFORMANCE_MESSAGES[1]);
+  });
+
+  it("selects from the high-performance pool at and above 80% (with at least one task)", () => {
+    expect(HIGH_PERFORMANCE_MESSAGES).toContain(encouragementMessage(80, 10));
+    expect(HIGH_PERFORMANCE_MESSAGES).toContain(encouragementMessage(100, 5));
+  });
+
+  it("selects from the mid-performance pool between 50% and 79%", () => {
+    expect(MID_PERFORMANCE_MESSAGES).toContain(encouragementMessage(50, 10));
+    expect(MID_PERFORMANCE_MESSAGES).toContain(encouragementMessage(79, 10));
+  });
+
+  it("selects from the low-performance pool below 50% when there IS at least one task (0% with real tasks differs from 0 tasks tracked)", () => {
+    expect(LOW_PERFORMANCE_MESSAGES).toContain(encouragementMessage(0, 3));
+    expect(LOW_PERFORMANCE_MESSAGES).toContain(encouragementMessage(49, 10));
+  });
+
+  it("selects from the no-tasks pool when totalCount is 0, regardless of the (always-0) rate, using the default random source", () => {
+    expect(NO_TASKS_MESSAGES).toContain(encouragementMessage(0, 0));
   });
 });
