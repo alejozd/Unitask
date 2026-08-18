@@ -2,6 +2,20 @@
 
 ## Current Phase Status (updated 2026-08-17)
 
+**Phase 8 — Progress screen** (plan: `docs/superpowers/plans/2026-08-17-phase8-progress.md`) is **COMPLETE and pushed** to `origin/master`. Commits `ca45773` (Task 1: domain selectors) → `d227b10` (Task 2: screen wiring) → `c81606d` (whole-branch review fix: ScrollView + tick).
+
+- Task-by-task summary:
+  1. `src/domain/progress.ts` — pure domain module (TDD). `buildProgressSummary` aggregates the active semester's `{task, status}` entries (reusing Phase 6's `DashboardEntry` type) into an overall completion rate (always a plain `number`, 0 with zero tasks, never `NaN`), 4 status counts (Pendiente/En progreso/Completada/Vencida), and a per-subject breakdown (subjects with zero tasks omitted, sorted `localeCompare("es")`). `encouragementMessage` is a separate pure text-generation function (80/50 thresholds, mirrors `greetingForHour`'s precedent).
+  2. `app/(tabs)/progreso/index.tsx` — full screen wiring the domain module to `useLiveQuery`, reusing `tareas/index.tsx`'s exact active-semester → subjects → tasks/subtasks query pattern. Deliberate mockup deviations, disclosed as intentional: a large % + horizontal bar instead of a circular ring (no `react-native-svg`/chart dependency — matches this project's "no new dependencies, no rebuild" constraint held since Phase 6), and 4 stat cards in a 2×2 grid instead of the mockup's 3 (Vencida is a real 4th status per `03-business-rules.md` §1 — folding it into another bucket would make the counts not sum to the total). Read-only, no create/edit/delete affordances, no `.tsx` component test (matches the non-pilot-phase convention).
+- Per-task review was **skipped for both tasks** — the Agent tool's reviewer-style dispatch was repeatedly blocked by the Claude Code auto-mode classifier this session (3 attempts, different wording, all blocked); the user explicitly chose to defer all review to the whole-branch pass instead of retrying.
+- **Whole-branch review**: 2 Important findings, both fixed in one commit `c81606d`. I1: no `ScrollView` — with enough subjects in the breakdown, the encouragement card and lower content could be pushed off-screen with no way to reach it (same bug class Phase 4/6/7 each hit on their own first pass). I2: no 60s recompute tick — this screen derives `status` via `deriveTaskStatus` at render time same as every other screen, so a task crossing into Vencida while the screen stayed open showed stale counts until the next navigation. Fix: wraps the populated-state body in a `ScrollView` (header stays fixed, mirrors the Calendario screen) and adds the same 60s tick used on every sibling screen (Tareas, Task detail, Home, Calendario).
+- **Acceptance**: human on-device checklist (in lieu of a scoped agent re-review, the user's explicit choice) — % + bar render correctly, all 4 status cards match the Tareas tab's counts, per-subject breakdown correct with zero-task subjects omitted, encouragement message visible, scroll reaches the end with nothing cut off, completing a task in Tareas reflects in Progreso within ≤60s without leaving the screen. All 6 ✔ — `c81606d` accepted on this evidence.
+- Final combined check: **189/189 tests (22 suites)**, `tsc`/`lint`/`prettier` all clean.
+- Full detail (implementer + reviewer findings) lives in `.superpowers/sdd/progress.md`'s "UniTask Phase 8" section.
+
+<details>
+<summary>Phase 7 — Calendar (month view) (complete, prior phase)</summary>
+
 **Phase 7 — Calendar (month view)** (plan: `docs/superpowers/plans/2026-08-17-phase7-calendar.md`) is **COMPLETE and pushed** to `origin/master`. Commits `976459e` (Task 1: domain) → `9ce6c22` (Task 2: day panel) → `3ec921e` (Task 3: FAB + pre-fill) → `be9a20b` (Task 4: screen wiring) → `e980328` (whole-branch review fix).
 
 - Task-by-task summary:
@@ -14,6 +28,8 @@
 - **Visual guidance ("guía, no spec")**: adopted from `calendario_unitask.png` — the weekday header row and the "N Pendientes" badge. Deliberately NOT adopted, disclosed as intentional: the Mes/Semana/Día toggle (week/day view is an explicit fast-follow, not this phase), a checkbox/quick-complete-from-calendar (new behavior beyond Phase 7's roadmap scope), a priority-only color stripe (would violate §18 on its own).
 - Final combined check: **179/179 tests (21 suites)**, `tsc`/`lint`/`prettier` all clean.
 - Full detail per task (implementer + reviewer findings) lives in `.superpowers/sdd/progress.md`'s "UniTask Phase 7" section.
+
+</details>
 
 <details>
 <summary>BLOQUE 0 + Phase 6.6 + 6.5b + 6.5c (complete, prior ad-hoc round)</summary>
@@ -80,4 +96,4 @@
 
 </details>
 
-**Phase 8 (Progress screen)** plan not yet written/approved.
+**Phase 9 (Settings + JSON export/import)** plan written (`docs/superpowers/plans/2026-08-17-phase9-settings-export-import.md`), **not yet approved/executed**.

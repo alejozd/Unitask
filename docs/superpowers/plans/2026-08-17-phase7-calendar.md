@@ -10,6 +10,7 @@
 
 ## Global Constraints
 
+- **Visual guidance ("guía, no spec" — added when the human approved execution):** `Documentacion/Design-stitch/calendario_unitask.png` and `DESIGN.md` inform structure/hierarchy, translated to this project's real `@/theme` tokens and existing conventions, never copied literally. Adopted from the mockup: a Monday-first weekday-letter header row above the grid (L M M J V S D — see Task 4), and a "N Pendiente(s)" count badge next to the day panel's date header (see Task 2). **Deliberately NOT adopted** (disclose as intentional deviations, not gaps, in each task's report): (1) the mockup's "Mes / Semana / Día" segmented toggle — `03-business-rules.md`/`11-roadmap.md`'s Phase 7 acceptance criteria explicitly ship month view only, week/day toggle is an explicit fast-follow, not this phase; (2) a checkbox on each day-panel task card for quick-complete-from-calendar — this is new *behavior*, not a visual tweak, and isn't in Phase 7's roadmap feature list; (3) a priority-color-only left stripe as the sole priority indicator — would violate §18's "never color alone" rule on its own, and this plan already satisfies §18 via the existing dot+text meta-chip, so a redundant stripe adds visual complexity without functional benefit for a first pass.
 - **No new dependencies.** Build the month grid with plain `Date` arithmetic — no calendar library. Matches Phase 6's "no new packages" precedent; month-grid math is straightforward without one.
 - **Week starts on Monday** (ISO 8601 / common `es`-locale convention). This is this plan's own assumption — not specified in `03-business-rules.md` §16 or `11-roadmap.md`. Document it in `src/domain/calendar.ts`'s header comment.
 - **Multi-priority-per-day dot rendering (resolves §16's explicitly-open assumption):** one dot per **distinct priority present that day** (maximum 3: Alta/Media/Baja), ordered Alta → Media → Baja, deduplicated — **not** one dot per task. §16's own text says this exact choice ("stacked dots vs. single highest-priority dot... capped at a small fixed number") is left to the implementation phase, not a product-level rule — this plan's choice is "one dot per distinct priority," flagged as an assumption in the Task 1 report.
@@ -35,6 +36,7 @@
 - Create: `src/domain/calendar.ts`
 - Create: `src/domain/__tests__/calendar.test.ts`
 - Modify: `src/domain/dashboard.ts` — export the existing private `isSameCalendarDay` helper (add the `export` keyword; no other change) so `calendar.ts` can reuse it instead of duplicating calendar-day-match logic.
+- Modify: `app/(tabs)/index.tsx` — remove the local private `isSameCalendarDay` duplicate added during Phase 6.5/6.6 (it existed specifically because this export didn't exist yet) and import the now-exported version from `@/domain/dashboard` instead. (Added per the human's explicit instruction when approving this plan's execution.)
 
 **Interfaces:**
 - Consumes: `type DashboardEntry` and `isSameCalendarDay` from `@/domain/dashboard` (this task adds the export); `type Task` from `@/db/schema/task` (for the `Priority` type alias only).
@@ -270,10 +272,59 @@ npm run lint
 npx prettier --check src/domain/calendar.ts src/domain/__tests__/calendar.test.ts src/domain/dashboard.ts
 ```
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 7: Remove the local `isSameCalendarDay` duplicate from the Home screen**
+
+In `app/(tabs)/index.tsx`, `dashboard.ts`'s `isSameCalendarDay` is now genuinely exported (Step 1 above), so the local private duplicate added during Phase 6.5/6.6 is no longer needed. Delete this whole block:
+
+```ts
+// Duplicated from src/domain/dashboard.ts's private helper of the same
+// name (not exported there — exporting it is Phase 7's own Task 1, a
+// separate, not-yet-executed change; this task must not touch
+// dashboard.ts's exports per Hard Constraint #1, so this 4-line helper is
+// intentionally duplicated here rather than imported).
+function isSameCalendarDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+```
+
+And change the import line from:
+
+```ts
+import { buildDashboardSummary, greetingForHour, type DashboardEntry } from "@/domain/dashboard";
+```
+
+to:
+
+```ts
+import {
+  buildDashboardSummary,
+  greetingForHour,
+  isSameCalendarDay,
+  type DashboardEntry,
+} from "@/domain/dashboard";
+```
+
+Every call site of `isSameCalendarDay` inside `app/(tabs)/index.tsx` (in `formatDueLabel`) stays exactly as it is — only the function's origin changes, from a local duplicate to the real import.
+
+- [ ] **Step 8: Run the full combined check again (now covering the Home screen too)**
 
 ```bash
-git add src/domain/calendar.ts src/domain/__tests__/calendar.test.ts src/domain/dashboard.ts
+npx tsc --noEmit
+npm run lint
+npx prettier --check src/domain/calendar.ts src/domain/__tests__/calendar.test.ts src/domain/dashboard.ts "app/(tabs)/index.tsx"
+npm test
+```
+
+`npm test` should stay at 166/166 (18 suites) — this is a pure refactor (same logic, different origin), no test should need to change.
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add src/domain/calendar.ts src/domain/__tests__/calendar.test.ts src/domain/dashboard.ts "app/(tabs)/index.tsx"
 git commit -m "feat: add calendar month-grid domain selectors (TDD)"
 ```
 
@@ -320,6 +371,35 @@ describe("CalendarDayPanel", () => {
     expect(screen.getByText("Entregar ensayo")).toBeTruthy();
     expect(screen.getByText("Historia")).toBeTruthy();
     expect(screen.getByText("Alta")).toBeTruthy();
+  });
+
+  it("shows a 'N Pendientes' badge counting only entries with status Pendiente (visual cue borrowed from calendario_unitask.png, guía-not-spec)", () => {
+    render(
+      <CalendarDayPanel
+        date={new Date(2026, 7, 20)}
+        entries={[
+          {
+            taskId: "t1",
+            title: "Tarea pendiente",
+            subjectName: "Historia",
+            subjectColor: "indigo",
+            priority: "Alta",
+            status: "Pendiente",
+          },
+          {
+            taskId: "t2",
+            title: "Tarea completada",
+            subjectName: "Historia",
+            subjectColor: "indigo",
+            priority: "Media",
+            status: "Completada",
+          },
+        ]}
+        onTaskPress={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText("1 Pendiente")).toBeTruthy();
   });
 
   it("shows an empty-state message when the day has no tasks", () => {
@@ -369,9 +449,19 @@ function formatDayHeader(date: Date): string {
 }
 
 export function CalendarDayPanel({ date, entries, onTaskPress }: CalendarDayPanelProps) {
+  const pendientesCount = entries.filter((item) => item.status === "Pendiente").length;
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>{formatDayHeader(date)}</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.header}>{formatDayHeader(date)}</Text>
+        {entries.length > 0 && (
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>
+              {pendientesCount} {pendientesCount === 1 ? "Pendiente" : "Pendientes"}
+            </Text>
+          </View>
+        )}
+      </View>
       {entries.length === 0 ? (
         <Text style={styles.emptyText}>No hay tareas para este día.</Text>
       ) : (
@@ -408,7 +498,26 @@ export function CalendarDayPanel({ date, entries, onTaskPress }: CalendarDayPane
 
 const styles = StyleSheet.create({
   container: { padding: 16, gap: 12 },
-  header: { fontSize: 16, fontWeight: "700", color: colors.text, textTransform: "capitalize" },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  header: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.text,
+    textTransform: "capitalize",
+  },
+  badge: {
+    backgroundColor: colors.primaryTint,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  badgeText: { fontSize: 12, fontWeight: "600", color: colors.primary },
   emptyText: { color: colors.textMuted, fontSize: 14 },
   row: {
     flexDirection: "row",
@@ -651,6 +760,11 @@ function formatMonthHeader(year: number, month: number): string {
   return new Date(year, month, 1).toLocaleDateString("es", { month: "long", year: "numeric" });
 }
 
+// Monday-first single-letter weekday header (visual cue from
+// calendario_unitask.png — "guía, no spec"), matching this module's own
+// Monday-first grid convention in src/domain/calendar.ts.
+const WEEKDAY_LABELS = ["L", "M", "M", "J", "V", "S", "D"];
+
 export default function CalendarioScreen() {
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
@@ -750,6 +864,14 @@ export default function CalendarioScreen() {
         </View>
       ) : (
         <ScrollView>
+          <View style={styles.weekdayRow}>
+            {WEEKDAY_LABELS.map((label, index) => (
+              <Text key={`${label}-${index}`} style={styles.weekdayLabel}>
+                {label}
+              </Text>
+            ))}
+          </View>
+
           <View style={styles.grid}>
             {days.map((day) => {
               const isSelected = isSameCalendarDay(day.date, selectedDate);
@@ -763,7 +885,13 @@ export default function CalendarioScreen() {
                   ]}
                   onPress={() => setSelectedDate(day.date)}
                 >
-                  <Text style={[styles.dayNumber, !day.isCurrentMonth && styles.dayNumberDimmed]}>
+                  <Text
+                    style={[
+                      styles.dayNumber,
+                      !day.isCurrentMonth && styles.dayNumberDimmed,
+                      isSelected && styles.dayNumberSelected,
+                    ]}
+                  >
                     {day.date.getDate()}
                   </Text>
                   <View style={styles.dotsRow}>
@@ -809,6 +937,14 @@ const styles = StyleSheet.create({
   },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   emptyText: { color: colors.textMuted },
+  weekdayRow: { flexDirection: "row", paddingHorizontal: 12, paddingBottom: 4 },
+  weekdayLabel: {
+    width: "14.28%",
+    textAlign: "center",
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.textMuted,
+  },
   grid: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 12 },
   dayCell: {
     width: "14.28%",
@@ -817,10 +953,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 4,
   },
-  dayCellSelected: { backgroundColor: colors.primaryTint, borderRadius: 8 },
+  dayCellSelected: { backgroundColor: colors.primary, borderRadius: 999 },
   dayCellDimmed: { opacity: 0.4 },
   dayNumber: { fontSize: 14, color: colors.text },
   dayNumberDimmed: { color: colors.textMuted },
+  dayNumberSelected: { color: "#FFFFFF", fontWeight: "700" },
   dotsRow: { flexDirection: "row", gap: 2 },
   dot: { width: 5, height: 5, borderRadius: 2.5 },
 });
@@ -845,7 +982,9 @@ git commit -m "feat: wire the Calendario month-view screen"
 
 ### Task 5: Full Phase 7 Definition of Done verification
 
-**Files:** none (verification-only task, matching every prior phase's precedent).
+**Files:** none (verification-only task).
+
+**Verification split (added when the human approved execution — do not spend tokens driving an emulator for this phase):** the implementer runs the automated combined check only and produces an on-device checklist document; the human performs the actual on-device walkthrough themselves, using that checklist, exactly like Phase 6.6/6.5b/6.5c's rounds.
 
 - [ ] **Step 1: Run the full combined check**
 
@@ -856,23 +995,27 @@ npm run lint
 npx prettier --check .
 ```
 
-Expected: all green, no regressions in any suite from Phases 0-6.
+Expected: all green, no regressions in any suite from Phases 0-6. If anything fails, fix it, re-verify, and commit the fix before proceeding to Step 2 (a real bug found here is a real bug to fix, not to defer to the human's checklist).
 
-- [ ] **Step 2: On-device walkthrough**
+- [ ] **Step 2: Write the on-device checklist for the human**
 
-1. Open the Calendario tab. Confirm the month grid shows the current month, starting the week on Monday, with dimmed leading/trailing days from adjacent months.
+Write `.superpowers/sdd/phase7-device-checklist.md` — a short, numbered checklist the human can walk through themselves on their own device, no agent involvement. Base it on:
+
+1. Open the Calendario tab — confirm the month grid shows the current month, weekday letters (L M M J V S D) above it, starting the week on Monday, with dimmed leading/trailing days from adjacent months.
 2. Confirm a day with a task due on it shows the correct priority-colored dot(s); a day with tasks of two different priorities shows two dots, not one per task.
-3. Tap a day — confirm the inline day panel below the grid updates to that day's tasks, showing title, subject, and priority as dot + text label; confirm the screen never navigates away from Calendario.
-4. Tap a day with no tasks — confirm the empty-state message appears.
-5. Tap "Añadir tarea" with a specific day selected — confirm the new-task form opens with that day pre-filled as the due date (and the time defaults to now, unchanged).
+3. Tap a day — confirm the inline day panel below the grid updates to that day's tasks (title, subject, priority as dot + text label, "N Pendiente(s)" badge next to the date), and the screen never navigates away from Calendario. Confirm the selected day renders as a filled circle.
+4. Tap a day with no tasks — confirm the empty-state message appears (and no badge shows).
+5. Tap "Añadir tarea" with a specific day selected — confirm the new-task form opens with that day pre-filled as the due date (time defaults to now, unchanged).
 6. Tap a task in the day panel — confirm it navigates to that task's detail screen.
 7. Navigate to the previous/next month using the arrows — confirm the grid updates and dots reflect that month's tasks correctly.
-8. Close the active semester (or reach a state with no active semester, if reachable without destructive action) — confirm the calendar behaves sensibly (empty grid/dots, not a crash). If reaching this state would require an irreversible action on the human's real data (as Phase 5's Task 7 and Phase 6's Task 3 both encountered), disclose this as a skipped check for data-safety reasons instead, matching established precedent — do not close the only semester without a reversible backup plan.
+8. If reachable without destructive action: close the active semester (or find a state with no active semester) and confirm the calendar behaves sensibly (empty grid/dots, not a crash). **Do not perform this check yourself if it requires an irreversible action on real data** — leave it for the human to decide whether to try, same data-safety precedent as Phase 5's Task 7 and Phase 6's Task 3.
 
-- [ ] **Step 3: Write the Phase 7 DoD report**
+Add a short "Known deliberate deviations from the mockup" note at the top of the checklist (the 3 items from this plan's Global Constraints — no Mes/Semana/Día toggle, no checkbox/quick-complete, no priority-only stripe) so the human isn't surprised by their absence when comparing against `calendario_unitask.png`.
 
-Write `.superpowers/sdd/task-5-report.md` (check first whether a stale report from an earlier phase's differently-numbered final task exists at a colliding path — this project has hit that collision before — overwrite if so).
+- [ ] **Step 3: Write the Phase 7 implementation report**
 
-- [ ] **Step 4: No commit expected**
+Write `.superpowers/sdd/task-5-report.md` (check first whether a stale report from an earlier phase's differently-numbered final task exists at a colliding path — this project has hit that collision before — overwrite if so). Include the combined-check output and a pointer to the checklist file from Step 2.
 
-Verification-only, unless Steps 1-2 surface a real bug, in which case fix, re-verify, and commit the fix.
+- [ ] **Step 4: No commit expected for the checklist itself**
+
+The checklist and report are working documents (matching this project's `.superpowers/sdd/` convention — no commit needed for them). Only commit if Step 1 surfaced and required a real fix.
