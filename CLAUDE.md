@@ -2,6 +2,23 @@
 
 ## Current Phase Status (updated 2026-08-17)
 
+**Phase 9 — Settings + JSON export/import** (plan: `docs/superpowers/plans/2026-08-17-phase9-settings-export-import.md`) is **COMPLETE and pushed** to `origin/master`. Commits `8f71380` (Task 1: backup domain module) → `33f6ffc` (Task 2: backup repository) → `f4f0800` (Task 3: attachment missing-file guard) → `ccb0956` (Task 4: Settings screen wiring).
+
+- Execution mode (confirmed with the human): Tasks 1-4 implemented **inline** (no per-task implementer/reviewer subagent pair), TDD mandatory for the domain/repository/lib layers, exactly **one** subagent dispatch this phase — the whole-branch review after Task 5.
+- Before dispatching Task 1, the human reviewed the plan against 4 explicit points (attachment binaries excluded with explicit notices + "archivo no disponible" without a crash; pre-replace validation with data left intact on failure; full cancel+reschedule of the reminder pipeline after import; explicit destructive confirmation for import). 3 were already covered by the plan as written; the 4th ("archivo no disponible sin crash") was a genuine gap — closed by adding a new Task 3 to the plan (commit `bddcd0d`) before any code was written.
+- Task-by-task summary:
+  1. `src/domain/backup.ts` — pure domain module (TDD). `BACKUP_VERSION = 1` (no migration logic — single supported version). `serializeBackup` wraps all 7 tables + a version + `exportedAt`; `JSON.stringify` handles Date→ISO automatically. `parseBackupFile` does basic shape/version validation only (04-user-flows.md flow 7's own wording, not a full schema validator): valid JSON, correct version, all 7 table keys present as arrays, every row's known date fields parse to a valid `Date` — explicitly does NOT validate FK integrity or enum membership (see the whole-branch review's one disclosed Minor below). 10/10 tests, true RED confirmed before implementation.
+  2. `src/db/repositories/backup.ts` — `exportBackupJson` (pure reads, pretty-printed JSON) and `importBackup` (the destructive path): cancels every pre-existing reminder's OS notification BEFORE a single synchronous `database.transaction(...)` that deletes all 7 tables (child→parent) and inserts the imported rows verbatim (parent→child) — same transaction pattern `semester.ts`'s `createSemester` established. Imported reminders are always inserted with `notificationId: null` (the old id is never trusted), then a second pass reschedules a fresh notification for every reminder still due in the future. Deliberately bypasses `assertTaskEditable`/closed-semester enforcement for every table — writes go straight through `tx.insert`, never through `createTask`/`addReminder`/etc. — since import is a full-system replace, not a per-entity edit. 9/9 tests, true RED confirmed.
+  3. `src/lib/files/index.ts` + `app/tarea/[id]/index.tsx` — new `AttachmentFileNotFoundError`, thrown by `openAttachment` when `file.exists` is false, checked before any `IntentLauncher`/`Sharing` call. Task detail's `handleOpenAttachment` catches it distinctly and shows "Archivo no disponible" instead of the generic error — the concrete fix for an attachment row restored via import with no backing file. 1/1 test, true RED confirmed.
+  4. `app/configuracion/index.tsx` — wires "Exportar datos" (writes to `Paths.cache`, opens the share sheet) and "Importar datos" (picks a file, validates via `parseBackupFile`, shows a destructive-replace `Alert.alert` naming that attachments aren't restored, only imports on explicit "Reemplazar", then reports how many reminders were rescheduled and routes to the Dashboard) into Phase 6.6's existing Settings screen — same file, not a new screen. No new tests (UI-only wiring, matches the established non-pilot-phase convention).
+- **Whole-branch review** (single subagent dispatch, per the confirmed execution mode): "Ready to merge: Yes." 0 Critical, 0 Important — independently re-verified cancel-before-wipe ordering, the single-transaction 7-table replace, the forced `notificationId: null`, past-vs-denied reminder counting, the genuine `assertTaskEditable` bypass, the validation-gated import path (`handleImportPress`/`runImport` never reaches `importBackup` unvalidated), the `AttachmentFileNotFoundError` guard's ordering, and confirmed 2 load-bearing tests genuinely fail without their production code. 1 disclosed Minor, not fixed (matches the plan's own explicit scope boundary): imported enum fields (`priority`/`color`/`status`/`kind`) have no DB-level `CHECK` constraint, only TypeScript — a hand-corrupted import file could write an invalid enum value. Self-inflicted attack surface (a user importing their own file, behind an explicit destructive-confirm dialog), not a cross-user vulnerability.
+- Final combined check: **209/209 tests (24 suites)**, `tsc`/`lint`/`prettier` all clean.
+- Full detail per task lives in `.superpowers/sdd/progress.md`'s "UniTask Phase 9" section.
+- On-device verification deferred to the human via `.superpowers/sdd/phase9-device-checklist.md` (no agent drove an emulator this phase, per the confirmed verification split).
+
+<details>
+<summary>Phase 8 — Progress screen (complete, prior phase)</summary>
+
 **Phase 8 — Progress screen** (plan: `docs/superpowers/plans/2026-08-17-phase8-progress.md`) is **COMPLETE and pushed** to `origin/master`. Commits `ca45773` (Task 1: domain selectors) → `d227b10` (Task 2: screen wiring) → `c81606d` (whole-branch review fix: ScrollView + tick).
 
 - Task-by-task summary:
@@ -12,6 +29,8 @@
 - **Acceptance**: human on-device checklist (in lieu of a scoped agent re-review, the user's explicit choice) — % + bar render correctly, all 4 status cards match the Tareas tab's counts, per-subject breakdown correct with zero-task subjects omitted, encouragement message visible, scroll reaches the end with nothing cut off, completing a task in Tareas reflects in Progreso within ≤60s without leaving the screen. All 6 ✔ — `c81606d` accepted on this evidence.
 - Final combined check: **189/189 tests (22 suites)**, `tsc`/`lint`/`prettier` all clean.
 - Full detail (implementer + reviewer findings) lives in `.superpowers/sdd/progress.md`'s "UniTask Phase 8" section.
+
+</details>
 
 <details>
 <summary>Phase 7 — Calendar (month view) (complete, prior phase)</summary>
@@ -96,4 +115,4 @@
 
 </details>
 
-**Phase 9 (Settings + JSON export/import)** plan written (`docs/superpowers/plans/2026-08-17-phase9-settings-export-import.md`), **not yet approved/executed**.
+**Phase 10 (Empty states, confirmations, accessibility, theming cleanup)** — not yet planned.
