@@ -135,6 +135,7 @@ export default function TareasScreen() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={styles.chipsScroll}
         contentContainerStyle={styles.chipsRow}
       >
         {FILTER_CHIPS.map((chip) => (
@@ -226,11 +227,13 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   header: { padding: 20, paddingBottom: 8 },
   title: { fontSize: 22, fontWeight: "700", color: colors.text },
+  chipsScroll: { flexGrow: 0, flexShrink: 0 },
   chipsRow: {
     flexDirection: "row",
+    alignItems: "center",
     gap: 8,
     paddingHorizontal: 20,
-    paddingBottom: 12,
+    paddingVertical: 12,
   },
   chip: {
     borderWidth: 1,
