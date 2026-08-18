@@ -3,6 +3,8 @@
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 >
 > **This plan has NOT been approved for execution.** It was written per an explicit "write the plan, do not run it" instruction (2026-08-17). Do not dispatch Task 1 until a human explicitly approves execution, the same gate every prior phase in this project has gone through.
+>
+> **Execution mode (confirmed with the human, 2026-08-17, matching Phase 8's pattern):** Tasks 1–4 are implemented **inline** by the main session, not dispatched to a per-task implementer/reviewer subagent pair — TDD is still mandatory for the domain layer (Task 1) and the repository/lib layers (Tasks 2–3). Only ONE subagent dispatch happens this phase: the whole-branch review after Task 5 (`### After Task 5` below). Maximum 1 retry attempt if a dispatch is blocked (e.g. the Agent-tool classifier issue Phase 8 hit) — on a second block, fall back to proceeding without that dispatch and disclose it, matching Phase 8's own precedent, rather than retrying indefinitely. Task 5's on-device checklist is for the human to run, not an agent.
 
 **Goal:** Extend `app/configuracion/index.tsx` (Phase 6.6's minimal profile screen — same file, not a new screen, per `11-roadmap.md`'s explicit note) with "Exportar datos" and "Importar datos" actions, per `01-product.md`/`03-business-rules.md` §14 and `04-user-flows.md` flows 6–7: export serializes all local data to a single JSON file and opens the share sheet; import picks a previously exported file, validates it, shows an explicit irreversible-replace warning, and on confirm fully replaces local data — no merge.
 
@@ -16,6 +18,7 @@
 - **Single supported backup version, no migration logic.** `BACKUP_VERSION = 1`. A file with a missing or different `version` field is rejected outright with a distinct "unsupported version" reason — there is exactly one version to migrate *to* since this is the first export format this app has ever shipped, so a migration path is speculative until a second version actually exists (YAGNI).
 - **Full replace only, no merge** — `11-roadmap.md`'s explicit v1 scope; `03-business-rules.md` §14 and `04-user-flows.md` flow 7 both describe import as a total overwrite. Merge import is an explicit fast-follow candidate, not this phase.
 - **Attachment FILES are not embedded in the export — metadata only** (`03-business-rules.md` §14, spec-explicit). The export/import UI copy must say so explicitly (e.g. an inline note under "Exportar datos": "Los archivos adjuntos no se incluyen, solo su información") so this isn't a silent surprise data-loss trap when a user restores on a new device and finds attachment rows that point at files that don't exist there.
+- **Opening an imported attachment whose file was never restored must fail safely with a distinguishable message, not crash or surface a raw exception.** A row imported from another device/reinstall references a `storedPath` that (per the constraint above) has no backing file locally. `openAttachment` (`src/lib/files/index.ts`) currently has no existence check — its `IntentLauncher`/`Sharing` fallback chain would either silently fail via the existing generic catch at the call site or, worse, `Sharing.shareAsync` rejecting with a raw native error outside that chain's own `try/catch`. Task 3 below adds an explicit `file.exists` guard and a distinguishable `AttachmentFileNotFoundError`, so the Task-detail screen's `handleOpenAttachment` can show "Archivo no disponible" instead of the generic "No se pudo abrir el archivo." error — this is the concrete fix for the "archivo no disponible sin crash" requirement, confirmed with the human when approving this plan's execution.
 - **Basic shape/version validation only, not deep schema validation** (`04-user-flows.md` flow 7 step 3 says "basic shape/version check", not exhaustive per-field validation). `parseBackupFile` checks: valid JSON, correct `version`, all 7 expected table keys present as arrays, and that each row's *known date fields* parse to a valid `Date` (guards against silently importing `Invalid Date` into the DB). It does **not** validate FK integrity, enum membership (e.g. a corrupted `priority` value), or field completeness beyond that — a deliberately shallow bar matching the roadmap's own wording, not a full-blown schema validator (Zod or similar) which would be a new dependency this plan's first constraint already rules out.
 - **Import bypasses `assertTaskEditable`/closed-semester enforcement entirely, for every table.** This is a deliberate, phase-defining decision — **flag for explicit human confirmation when approving this plan's execution, matching every prior phase's pattern for a plan's own added assumptions** (Phase 6's §15 "Tareas urgentes" ambiguity, Phase 8's `overallCompletionRate` contract, etc.): import is a full-system replace, not a per-entity edit, so the ordinary "closed semester is read-only" rule (§11) does not apply to it — a backup taken while a semester was closed must still restore that semester's tasks correctly. Task 2's repository functions write directly via `database.delete`/`database.insert`, never through `task.ts`/`subject.ts`/etc.'s create/update functions (which enforce §11 and would incorrectly block restoring closed-semester data).
 - **Imported reminders are always rescheduled fresh — old `notificationId` values from the export are always discarded on import**, even if they happen to look plausible (`04-user-flows.md` flow 7 step 6, spec-explicit, not an assumption). Every imported reminder row is inserted with `notificationId: null` first; a second pass after the transaction commits calls `requestNotificationPermission` once, then `scheduleReminderNotification` for every reminder whose imported `computedFireAt` is still in the future, mirroring `addReminder`'s existing scheduling logic (`src/db/repositories/reminder.ts`) — reused conceptually, not literally, since `addReminder` also enforces `assertTaskEditable` and generates a new id, neither of which applies when restoring rows that already have their own id.
@@ -23,7 +26,7 @@
 - **Export file is written to `Paths.cache`, not `Paths.document`.** It's transient share output the app never needs to read back — matches `expo-document-picker`'s own `copyToCacheDirectory` convention already used for attachments (Phase 5), as opposed to attachments' `Paths.document` (persistent, private) storage.
 - **Export is pretty-printed JSON** (`JSON.stringify(backupFile, null, 2)`), not minified — this plan's own assumption, since neither `03-business-rules.md` nor `11-roadmap.md` specifies a format; human-inspectability (the user can open the file and sanity-check it) outweighs the negligible size cost at this app's realistic data volumes. Flag as an assumption in Task 1's report.
 - **Confirmation dialog required before import replace** (`03-business-rules.md` §13, already covered by rule 13's "Import data (overwrite warning)" line) — reuses the existing `Alert.alert(title, message, [cancel, destructive])` pattern already established for semester close / task / subject deletion, not a new dialog component.
-- **No new component test.** Matching Phase 8's precedent (the established convention for non-pilot phases), this screen is verified via domain tests (Task 1) + repository integration tests (Task 2) + the on-device DoD pass (Task 4) only — no `.tsx` test file.
+- **No new component test.** Matching Phase 8's precedent (the established convention for non-pilot phases), this screen is verified via domain tests (Task 1) + repository integration tests (Task 2) + the on-device DoD pass (Task 5) only — no `.tsx` test file.
 - **Every color in the new UI comes from `@/theme`**, zero new hardcoded hex values beyond the same pre-existing `"#FFFFFF"`-on-solid-color pattern already backlogged for Phase 10 (`colors.primary`-background button text, etc.) — do not invent a new hex value.
 
 ---
@@ -393,13 +396,117 @@ git commit -m "feat: add backup export/import repository (TDD)"
 
 ---
 
-### Task 3: Wire "Exportar datos" / "Importar datos" into the Settings screen
+### Task 3: Guard `openAttachment` against a missing file (imported attachments without a restored file)
+
+**Files:**
+- Modify: `src/lib/files/index.ts` — add `AttachmentFileNotFoundError` + an existence check at the top of `openAttachment`.
+- Modify: `src/lib/files/__tests__/index.test.ts` — one new test (TDD).
+- Modify: `app/tarea/[id]/index.tsx` — `handleOpenAttachment` catches the new error distinctly.
+
+**Interfaces:**
+- Consumes: `File` from `expo-file-system` (already imported in `src/lib/files/index.ts`).
+- Produces: `AttachmentFileNotFoundError` (new export from `@/lib/files`, same pattern as the existing `CameraPermissionDeniedError`).
+
+**Why this task exists:** every attachment row imported by Task 2's `importBackup` references a `storedPath` for a file that, per this plan's Global Constraints (attachment files are never embedded in the export), does not exist on the importing device. Opening one of these rows today would fall through `openAttachment`'s `IntentLauncher`/`Sharing` chain to `Sharing.shareAsync(storedPath, ...)`, which rejects for a nonexistent file — outside the function's own `try/catch`, so it propagates to the caller as a generic, unidentifiable error. The Task-detail screen already catches *some* error there (`handleOpenAttachment`, pre-existing), so this was never a literal app crash — but it currently shows the same generic "No se pudo abrir el archivo." for every failure, giving no indication that this specific attachment can never be opened because its file was never restored.
+
+**Given code:**
+
+```typescript
+// src/lib/files/index.ts — add this class near CameraPermissionDeniedError:
+
+/**
+ * Thrown by `openAttachment` when `storedPath` has no backing file on this
+ * device — the expected state for every attachment row restored via
+ * Phase 9's import (attachment FILES are never embedded in the export,
+ * only their metadata/row). Distinct from every other `openAttachment`
+ * failure so the caller can show a specific "not available" message
+ * instead of a generic error.
+ */
+export class AttachmentFileNotFoundError extends Error {
+  constructor() {
+    super("Attachment file not found");
+    this.name = "AttachmentFileNotFoundError";
+  }
+}
+
+// openAttachment gains one guard at the top, everything after is unchanged:
+export async function openAttachment(storedPath: string, mimeType: string): Promise<void> {
+  const file = new File(storedPath);
+  if (!file.exists) {
+    throw new AttachmentFileNotFoundError();
+  }
+
+  try {
+    await IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
+      data: file.contentUri,
+      type: mimeType,
+      flags: 1,
+    });
+    return;
+  } catch {
+    // fall through to the share sheet, unchanged from before
+  }
+
+  const available = await Sharing.isAvailableAsync();
+  if (!available) return;
+  await Sharing.shareAsync(storedPath, { mimeType });
+}
+```
+
+```typescript
+// app/tarea/[id]/index.tsx — handleOpenAttachment, updated:
+import { AttachmentFileNotFoundError, openAttachment, type PickedDocument } from "@/lib/files";
+
+async function handleOpenAttachment(attachment: AttachmentListItem) {
+  try {
+    await openAttachment(attachment.storedPath, attachment.mimeType);
+  } catch (error) {
+    if (error instanceof AttachmentFileNotFoundError) {
+      Alert.alert(
+        "Archivo no disponible",
+        "Este adjunto no tiene un archivo en este dispositivo — probablemente viene de una copia de seguridad importada, que no incluye los archivos adjuntos.",
+      );
+    } else {
+      Alert.alert("Error", "No se pudo abrir el archivo.");
+    }
+  }
+}
+```
+
+**Test case (`src/lib/files/__tests__/index.test.ts`):**
+
+- `openAttachment` throws `AttachmentFileNotFoundError` for a `storedPath` that doesn't exist — asserted via `await expect(openAttachment(...)).rejects.toThrow(AttachmentFileNotFoundError)`, using a path built under `Paths.document` that is never written to (matching this file's existing `Directory`/`File`/`Paths` virtual-FS pattern — no new mocking needed, since the guard returns before `IntentLauncher`/`Sharing` are ever touched).
+
+- [ ] **Step 1: Write the failing test** in `src/lib/files/__tests__/index.test.ts`, confirm RED.
+- [ ] **Step 2: Add `AttachmentFileNotFoundError` + the existence guard** to `src/lib/files/index.ts`, confirm GREEN.
+- [ ] **Step 3: Update `app/tarea/[id]/index.tsx`'s `handleOpenAttachment`** per the given code above.
+- [ ] **Step 4: Run the full combined check**
+
+```bash
+npx tsc --noEmit
+npm run lint
+npx prettier --check "src/lib/files/index.ts" "src/lib/files/__tests__/index.test.ts" "app/tarea/[id]/index.tsx"
+npm test
+```
+
+Expected: one new test on top of Task 2's count (roughly 209-210/210, 24 suites).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add "src/lib/files/index.ts" "src/lib/files/__tests__/index.test.ts" "app/tarea/[id]/index.tsx"
+git commit -m "fix(adjuntos): show a distinct message when an attachment's file was never restored"
+```
+
+---
+
+### Task 4: Wire "Exportar datos" / "Importar datos" into the Settings screen
 
 **Files:**
 - Modify: `app/configuracion/index.tsx` — add a "Datos" section below the existing profile form, per Phase 6.6's note that this screen is extended, not replaced.
 
 **Interfaces:**
-- Consumes: `exportBackupJson`, `importBackup` from `@/db/repositories/backup` (Task 2); `parseBackupFile`, `type BackupTables` from `@/domain/backup` (Task 1); `getDocumentAsync` from `expo-document-picker`; `File`, `Paths` from `expo-file-system`; `isAvailableAsync`, `shareAsync` from `expo-sharing`; `router` from `expo-router` (already imported); `colors` from `@/theme` (already imported).
+- Consumes: `exportBackupJson`, `importBackup` from `@/db/repositories/backup` (Task 2); `parseBackupFile`, `type BackupTables` from `@/domain/backup` (Task 1); `getDocumentAsync` from `expo-document-picker`; `File`, `Paths` from `expo-file-system`; `isAvailableAsync`, `shareAsync` from `expo-sharing`; `router` from `expo-router` (already imported); `colors` from `@/theme` (already imported). (Task 3's `AttachmentFileNotFoundError` guard is independent of this task — it lives entirely in `src/lib/files/index.ts`/`app/tarea/[id]/index.tsx`, not this screen.)
 
 **Given code (additions to the existing file — insert after the profile `form` block, before the closing `SafeAreaView`; existing imports/state/handlers untouched):**
 
@@ -548,7 +655,7 @@ npx prettier --check "app/configuracion/index.tsx"
 npm test
 ```
 
-Expected: same test count as the end of Task 2 — this is UI-only wiring, no new tests (Global Constraints).
+Expected: same test count as the end of Task 3 — this is UI-only wiring, no new tests (Global Constraints).
 
 - [ ] **Step 3: Commit**
 
@@ -559,7 +666,7 @@ git commit -m "feat: wire export/import into the Settings screen"
 
 ---
 
-### Task 4: Full Phase 9 Definition of Done verification
+### Task 5: Full Phase 9 Definition of Done verification
 
 **Files:** none (verification-only task).
 
@@ -587,12 +694,13 @@ Write `.superpowers/sdd/phase9-device-checklist.md`. Base it on:
 4. Tap "Importar datos", pick the JSON exported in step 2 — confirm the destructive-replace warning dialog appears; tap "Cancelar" — confirm no data changed (spot-check a task still exists).
 5. Tap "Importar datos" again, pick the same file, tap "Reemplazar" — confirm a success alert appears mentioning how many reminders were rescheduled, then confirm the app lands on the Dashboard showing the restored data.
 6. Spot-check the restored data matches what was exported: same semesters/subjects/tasks, a scheduled reminder shows no "(no programado)" suffix on Task detail (proves it was genuinely rescheduled, not left with the old dead notification id).
-7. If reachable without further destructive action: export data from a state that includes a **closed** semester, then re-import it — confirm the closed semester's tasks/subjects come back correctly (proves the deliberate `assertTaskEditable` bypass from this plan's Global Constraints works, not just the active-semester path).
-8. Restore the real backup from Step 0 at the end of this checklist, so the device is left in its original state, not the test file's data.
+7. On a task that had an attachment before the import replaced it, tap that attachment in the restored data — confirm an "Archivo no disponible" alert appears (not a crash, not the generic "No se pudo abrir el archivo." message) — proves Task 3's guard fires for a real imported-without-its-file row, not just the unit test's synthetic path.
+8. If reachable without further destructive action: export data from a state that includes a **closed** semester, then re-import it — confirm the closed semester's tasks/subjects come back correctly (proves the deliberate `assertTaskEditable` bypass from this plan's Global Constraints works, not just the active-semester path).
+9. Restore the real backup from Step 0 at the end of this checklist, so the device is left in its original state, not the test file's data.
 
 - [ ] **Step 3: Write the Phase 9 implementation report**
 
-Write `.superpowers/sdd/task-4-report.md` (check first whether a stale report from an earlier phase's differently-numbered final task exists at a colliding path — this project has hit that collision before, in Phases 3/4/5/7 — overwrite if so). Include the combined-check output and a pointer to the checklist file from Step 2.
+Write `.superpowers/sdd/task-5-report.md` (check first whether a stale report from an earlier phase's differently-numbered final task exists at a colliding path — this project has hit that collision before, in Phases 3/4/5/7 — overwrite if so). Include the combined-check output and a pointer to the checklist file from Step 2.
 
 - [ ] **Step 4: No commit expected for the checklist itself**
 
@@ -600,6 +708,6 @@ Only commit if Step 1 surfaced and required a real fix.
 
 ---
 
-### After Task 4: whole-branch review
+### After Task 5: whole-branch review
 
-Matches this project's established "UI phases done inline, whole-branch review only at the end" working mode (confirmed with the human for this stretch of phases) — dispatch one whole-branch review across `origin/master..HEAD` after Task 4, before pushing, same as Phases 6/7/8.
+Matches this project's established "UI phases done inline, whole-branch review only at the end" working mode (confirmed with the human for this stretch of phases) — dispatch one whole-branch review across `origin/master..HEAD` after Task 5, before pushing, same as Phases 6/7/8.
