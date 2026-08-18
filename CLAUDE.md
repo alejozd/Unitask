@@ -2,6 +2,23 @@
 
 ## Current Phase Status (updated 2026-08-17)
 
+## MVP STATUS: COMPLETE (Phases 0-10, per `docs/11-roadmap.md`)
+
+**Phase 10 — Empty states, confirmations, accessibility, theming cleanup** (plan: `docs/superpowers/plans/2026-08-17-phase10-polish.md`) is **COMPLETE and pushed** to `origin/master` — **this was the last MVP phase.** Commits `3c5b354` (Task 1: subtask-delete confirmation) → `ba248dd` (Task 2: `colors.onColor` + 25-site hex migration) → `0e7f659` (Task 3: Semestres defensive empty state).
+
+- The plan was grounded in a real pre-planning audit (grep-verified against live code, not assumed from the roadmap's feature list) that found most of Phase 10's stated scope already satisfied by prior phases — only 3 real gaps were targeted:
+  1. **`app/tarea/[id]/index.tsx`** — `handleRemoveSubtask` now shows an `Alert.alert` confirmation before deleting a persisted subtask, mirroring the existing delete-task handler in the same file. Closed the one real `03-business-rules.md` §13 gap the audit found (delete task/subject, close-semester, and import-data confirmations already existed from Phases 2/3/9).
+  2. **`src/theme/index.ts`** gained `colors.onColor` (`"#FFFFFF"`, deliberately kept distinct from `colors.surface` — a future dark theme could change `surface` without needing on-primary-button text to follow). Migrated all 25 hardcoded hex sites across 16 files: 21 `"#FFFFFF"` occurrences → `colors.onColor`, plus 4 sites that were exact duplicates of already-existing tokens and had simply never used them (3 in `app/onboarding/primer-semestre.tsx`, 1 in `app/_layout.tsx` — both files gained their first `@/theme` import). Pure literal substitution, zero visual change — whole-branch review independently re-verified every token's hex value byte-identical to what it replaced.
+  3. **`app/semestres/index.tsx`** gained a `ListEmptyComponent` ("No hay semestres registrados.") — low-priority defensive addition (this state is effectively unreachable in normal use, since onboarding forces a semester to exist first), closing the roadmap's literal empty-state acceptance criterion at zero risk.
+- **No new tests** (matches the plan's stated convention — Task 1 mirrors an already-untested sibling handler, Task 2 is a mechanical literal swap with no branchable logic, Task 3 is a static JSX addition). 213/213 tests unchanged throughout.
+- **Whole-branch review** (single subagent dispatch, explicitly asked to flag anything blocking an "MVP complete" claim): "Ready to merge: Yes." 0 Critical, 0 Important. 2 disclosed Minors, not fixed: (1) Semestres' `ListEmptyComponent` can also flash during the initial `useLiveQuery` load window, not only on a genuinely empty table — cosmetic, matches this task's own low-priority framing; (2) `handleRemoveSubtask` has no automated test, consistent with this codebase's established no-handler-test convention, not a new gap. Explicit conclusion: **"nothing in this diff looks half-done or blocking"** for calling the MVP done — the only loose ends are the human-only on-device checks (font scaling, screen reader), out of agent scope by design, not unfinished work.
+- Final combined check: **213/213 tests (24 suites)**, `tsc`/`lint`/`prettier` all clean. Zero new dependencies, zero `src/domain`/`src/db` changes (whole-branch review confirmed via `git diff --stat` that this phase was genuinely UI-only as claimed).
+- **On-device checklist for the human**: `.superpowers/sdd/phase10-device-checklist.md` (subtask-delete confirmation, visual spot-check of migrated colors, Semestres empty state, font scaling at 200%, screen-reader spot check, the gear-icon `hitSlop` fix still holding).
+- Full detail lives in `.superpowers/sdd/progress.md`'s "UniTask Phase 10" section.
+
+<details>
+<summary>Phase 9.5 — UI consistency pass (complete, prior phase)</summary>
+
 **Phase 9.5 — UI consistency pass** (ad-hoc, human-directed, no written plan doc) is **COMPLETE and pushed** to `origin/master`. Commits `f2860c2` (encouragementMessage pool+randomness, TDD) → `d4cb4a7` (SubjectIcon/TaskRow/KpiCard + Dashboard wiring) → `0344cb9` (CalendarDayPanel reuses TaskRow) → `eeef29d` (Progreso reuses KpiCard) → `16a6bd2` (Mis Tareas horizontal-scroll filters).
 
 - Human specs, 6 items, execution mode pure UI except item 5 (domain, TDD):
@@ -12,10 +29,12 @@
   5. **`encouragementMessage`** (`src/domain/progress.ts`, TDD) — each performance range now has a pool of 2-3 message variants, chosen via an injectable `random: () => number` (defaults to `Math.random`), clamped so a boundary value of exactly 1 can't index out of bounds. 14/14 domain tests, true RED confirmed before implementation.
   6. **Nice-to-have**: Mis Tareas' filter chips now scroll horizontally instead of wrapping (matches the Dashboard urgentes-carousel pattern) — included since it was a small change.
 - **§18 preserved**: whole-branch review confirmed `TaskRow`'s tags row still renders priority as a colored dot **and** a text label together, never color alone.
-- **On-device verification (human)**: all ✔ — subject initials on Dashboard/Calendario, KpiCard's unified layout in Progreso, horizontal-scroll filters, a pool message visible in Progreso's encouragement card, and the completed-task strikethrough+dim treatment all confirmed working. **Follow-up nice-to-have registered for Phase 10**: extend `TaskRow` to Mis Tareas' own list too, if it comes together quickly (not done this phase — that screen's `FlatList` card kept its pre-existing implementation, untouched except for the filter-chip scroll change).
+- **On-device verification (human)**: all ✔ — subject initials on Dashboard/Calendario, KpiCard's unified layout in Progreso, horizontal-scroll filters, a pool message visible in Progreso's encouragement card, and the completed-task strikethrough+dim treatment all confirmed working. A follow-up nice-to-have was registered ("extend `TaskRow` to Mis Tareas too, if it comes together quickly") — evaluated at the start of Phase 10 and judged NOT quick: Mis Tareas' row has an interactive quick-complete checkbox (`TaskRow`'s is deliberately non-interactive) plus attachment-count/progress% fields `TaskRow`'s interface doesn't carry, so adopting it as-is would either lose functionality or require a larger prop-surface redesign. Deferred to backlog, not done.
 - **Whole-branch review** (single subagent dispatch): "Ready to merge: Yes." 0 Critical, 0 Important. 1 disclosed Minor, not fixed: the "picks the last pool entry" test for `encouragementMessage` would pass even without its `Math.min(...,pool.length-1)` clamp at the current pool sizes (2-3) — only the separate "clamps random()=1" test actually exercises the clamp itself (confirmed correct and load-bearing by hand-tracing); a test-naming nuance, not a bug.
 - Final combined check: **213/213 tests (24 suites)**, `tsc`/`lint`/`prettier` all clean. Zero new dependencies.
 - Full detail lives in `.superpowers/sdd/progress.md`'s "UniTask Phase 9.5" section.
+
+</details>
 
 <details>
 <summary>Phase 9 — Settings + JSON export/import (complete, prior phase)</summary>
@@ -136,4 +155,4 @@
 
 </details>
 
-**Phase 10 (Empty states, confirmations, accessibility, theming cleanup)** — plan written (`docs/superpowers/plans/2026-08-17-phase10-polish.md`), **not yet approved/executed**. This is the last MVP phase (0-10). A pre-planning audit found most of the roadmap's stated scope already done by prior phases (4/5 §13 confirmations, empty states on 7/8 screens, priority dot+text everywhere, icon touch-targets already closed by this session's gear-icon fix) — the plan targets 3 real verified gaps: missing subtask-delete confirmation, 25 hardcoded hex sites needing a new `colors.onColor` token, and a defensive empty state on Semestres.
+**MVP (Phases 0-10) is COMPLETE** per `11-roadmap.md` — see the "Current Phase Status" section at the top of this file for Phase 10's close-out detail. Nothing past Phase 10 is planned yet; `11-roadmap.md`'s own "Fast-follow candidates" section lists explicit post-MVP ideas (calendar week/day views, iOS support, dark mode, cloud sync, merge import, etc.) as the next place to look when picking what comes next.
