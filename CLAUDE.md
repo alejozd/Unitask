@@ -2,6 +2,24 @@
 
 ## Current Phase Status (updated 2026-08-17)
 
+**Phase 9.5 — UI consistency pass** (ad-hoc, human-directed, no written plan doc) is **COMPLETE and pushed** to `origin/master`. Commits `f2860c2` (encouragementMessage pool+randomness, TDD) → `d4cb4a7` (SubjectIcon/TaskRow/KpiCard + Dashboard wiring) → `0344cb9` (CalendarDayPanel reuses TaskRow) → `eeef29d` (Progreso reuses KpiCard) → `16a6bd2` (Mis Tareas horizontal-scroll filters).
+
+- Human specs, 6 items, execution mode pure UI except item 5 (domain, TDD):
+  1. **`src/components/SubjectIcon.tsx`** (new) — subject initials (max 2 letters, uppercase) on a tinted version of the subject's own color, replacing the generic document-glyph icon. Local `hexToRgba` helper (no new dependency) — whole-branch review hand-traced the math against a real `subjectPalette` value and confirmed it correct.
+  2. **Row completion state**: a completed task shows a filled checkbox with a white check, a struck-through title, and the whole row dimmed to ~0.6 opacity; pending keeps the existing empty-circle look (matches Mis Tareas' quick-complete checkbox).
+  3. **`src/components/TaskRow.tsx`** (new) — shared row (SubjectIcon + checkbox + title + subject/priority tags + a trailing date-or-status label) used by BOTH the Dashboard's "Próximas entregas" list and the Calendar's day panel. The checkbox is a pure status indicator, not tappable — deliberately not reintroducing Phase 7's own already-deferred "quick-complete from Calendar" (whole-branch review confirmed it's a plain `View` with no `onPress`). The Dashboard's richer "Tareas urgentes" carousel card was explicitly left untouched.
+  4. **`src/components/KpiCard.tsx`** (new) — shared stat-card layout (icon-left + value-right row, label below) used by BOTH the Dashboard's KPI grid AND the Progreso screen's stat grid — Progreso's 4 cards migrated from a 3-row-stacked layout to match (a real visual change, not just extraction); the Dashboard's danger-tinted "Hoy" card variant is preserved exactly via `iconBackgroundColor`/`valueColor`/`labelColor`/`containerStyle` props (whole-branch review traced this against the pre-refactor code and confirmed an exact behavioral match).
+  5. **`encouragementMessage`** (`src/domain/progress.ts`, TDD) — each performance range now has a pool of 2-3 message variants, chosen via an injectable `random: () => number` (defaults to `Math.random`), clamped so a boundary value of exactly 1 can't index out of bounds. 14/14 domain tests, true RED confirmed before implementation.
+  6. **Nice-to-have**: Mis Tareas' filter chips now scroll horizontally instead of wrapping (matches the Dashboard urgentes-carousel pattern) — included since it was a small change.
+- **§18 preserved**: whole-branch review confirmed `TaskRow`'s tags row still renders priority as a colored dot **and** a text label together, never color alone.
+- **On-device verification (human)**: all ✔ — subject initials on Dashboard/Calendario, KpiCard's unified layout in Progreso, horizontal-scroll filters, a pool message visible in Progreso's encouragement card, and the completed-task strikethrough+dim treatment all confirmed working. **Follow-up nice-to-have registered for Phase 10**: extend `TaskRow` to Mis Tareas' own list too, if it comes together quickly (not done this phase — that screen's `FlatList` card kept its pre-existing implementation, untouched except for the filter-chip scroll change).
+- **Whole-branch review** (single subagent dispatch): "Ready to merge: Yes." 0 Critical, 0 Important. 1 disclosed Minor, not fixed: the "picks the last pool entry" test for `encouragementMessage` would pass even without its `Math.min(...,pool.length-1)` clamp at the current pool sizes (2-3) — only the separate "clamps random()=1" test actually exercises the clamp itself (confirmed correct and load-bearing by hand-tracing); a test-naming nuance, not a bug.
+- Final combined check: **213/213 tests (24 suites)**, `tsc`/`lint`/`prettier` all clean. Zero new dependencies.
+- Full detail lives in `.superpowers/sdd/progress.md`'s "UniTask Phase 9.5" section.
+
+<details>
+<summary>Phase 9 — Settings + JSON export/import (complete, prior phase)</summary>
+
 **Phase 9 — Settings + JSON export/import** (plan: `docs/superpowers/plans/2026-08-17-phase9-settings-export-import.md`) is **COMPLETE and pushed** to `origin/master`. Commits `8f71380` (Task 1: backup domain module) → `33f6ffc` (Task 2: backup repository) → `f4f0800` (Task 3: attachment missing-file guard) → `ccb0956` (Task 4: Settings screen wiring) → `4d4b456` (2 on-device-found bug fixes, see below).
 
 - Execution mode (confirmed with the human): Tasks 1-4 implemented **inline** (no per-task implementer/reviewer subagent pair), TDD mandatory for the domain/repository/lib layers, exactly **one** subagent dispatch this phase — the whole-branch review after Task 5.
@@ -16,6 +34,8 @@
 - **2 on-device-found bugs, both diagnosed in code with no emulator and fixed in one commit `4d4b456`** (pushed): (1) the Dashboard's gear icon (`app/(tabs)/index.tsx`) only registered taps on the bottom-right of its visible glyph — a classic icon-font glyph/touch-bounds centering offset; `onPress`/`router.push`/the `/configuracion` route registration were all confirmed byte-identical to the working Phase 6.6 code first, ruling those out — fixed with `hitSlop`. (2) picking a non-JSON file in "Importar datos" silently did nothing instead of showing "Archivo inválido" — `handleImportPress` was the one write-path handler in the whole codebase with no `try/catch`; a binary file fails `File.text()`'s UTF-8 decode, and the resulting rejection had nothing catching it. Fixed by wrapping the read+parse step in `try/catch`.
 - Final state after fixes: **209/209 tests (24 suites)** unchanged, `tsc`/`lint`/`prettier` all clean, pushed to `origin/master` (`8f71380`..`4d4b456`).
 - Full detail per task lives in `.superpowers/sdd/progress.md`'s "UniTask Phase 9" section.
+
+</details>
 
 <details>
 <summary>Phase 8 — Progress screen (complete, prior phase)</summary>
