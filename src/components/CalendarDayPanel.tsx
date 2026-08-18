@@ -1,8 +1,9 @@
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 import type { SubjectColor } from "@/db/repositories/subject";
 import type { TaskStatus } from "@/domain/task-status";
-import { colors, priorityColors, subjectPalette } from "@/theme";
+import { colors } from "@/theme";
+import { TaskRow } from "./TaskRow";
 
 export interface CalendarDayPanelEntry {
   taskId: string;
@@ -40,32 +41,24 @@ export function CalendarDayPanel({ date, entries, onTaskPress }: CalendarDayPane
       {entries.length === 0 ? (
         <Text style={styles.emptyText}>No hay tareas para este día.</Text>
       ) : (
-        entries.map((item) => (
-          <TouchableOpacity
-            key={item.taskId}
-            style={styles.row}
-            onPress={() => onTaskPress(item.taskId)}
-          >
-            <View style={styles.rowBody}>
-              <Text style={styles.title}>{item.title}</Text>
-              <View style={styles.metaRow}>
-                {item.subjectName && item.subjectColor && (
-                  <View style={styles.metaChip}>
-                    <View
-                      style={[styles.dot, { backgroundColor: subjectPalette[item.subjectColor] }]}
-                    />
-                    <Text style={styles.metaText}>{item.subjectName}</Text>
-                  </View>
-                )}
-                <View style={styles.metaChip}>
-                  <View style={[styles.dot, { backgroundColor: priorityColors[item.priority] }]} />
-                  <Text style={styles.metaText}>{item.priority}</Text>
-                </View>
-              </View>
-            </View>
-            <Text style={styles.status}>{item.status}</Text>
-          </TouchableOpacity>
-        ))
+        <View style={styles.list}>
+          {entries.map((item) => (
+            <TaskRow
+              key={item.taskId}
+              entry={{
+                taskId: item.taskId,
+                title: item.title,
+                completed: item.status === "Completada",
+                subjectName: item.subjectName,
+                subjectColor: item.subjectColor,
+                priority: item.priority,
+                trailingLabel: item.status,
+                trailingIsUrgent: item.status === "Vencida",
+              }}
+              onPress={() => onTaskPress(item.taskId)}
+            />
+          ))}
+        </View>
       )}
     </View>
   );
@@ -94,21 +87,5 @@ const styles = StyleSheet.create({
   },
   badgeText: { fontSize: 12, fontWeight: "600", color: colors.primary },
   emptyText: { color: colors.textMuted, fontSize: 14 },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: colors.surface,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 12,
-  },
-  rowBody: { flex: 1, gap: 4 },
-  title: { fontSize: 15, fontWeight: "600", color: colors.text },
-  metaRow: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  metaChip: { flexDirection: "row", alignItems: "center", gap: 4 },
-  dot: { width: 8, height: 8, borderRadius: 4 },
-  metaText: { fontSize: 12, color: colors.textMuted },
-  status: { fontSize: 12, color: colors.textMuted },
+  list: { gap: 12 },
 });
