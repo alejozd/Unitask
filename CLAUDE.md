@@ -1,8 +1,55 @@
 @AGENTS.md
 
-## Current Phase Status (updated 2026-08-17)
+## Current Phase Status (updated 2026-08-18)
 
-## MVP STATUS: COMPLETE (Phases 0-10, per `docs/11-roadmap.md`)
+## MVP STATUS: COMPLETE (Phases 0-10, per `docs/11-roadmap.md`) — post-MVP fast-follow work through Phase 10.7 also complete
+
+**Phase 10.7 — Due-time notification + Configuración regression fix** (ad-hoc, human-directed, no written plan doc) is **COMPLETE and pushed** to `origin/main`. Commit `4661221`, plus the human's own version-bump commit `5161e4b` (`app.json` → `1.0.1`).
+
+- Two items, one commit (human's explicit request to keep this small):
+  1. **Regression, verified before fixing (not blindly "restored")**: the human reported `app/configuracion/index.tsx`'s "Acerca de" (version) section had "disappeared" after Phase 10.6 added a "Puntualidad" section above it. `git log -p` confirmed the section's code was never removed — it was still present, correctly positioned. Root cause: the screen's content was a plain `View`, not a `ScrollView`; Puntualidad's two extra buttons pushed total content height past the viewport on a real device, so the last section (Acerca de) fell off-screen unreachable — the same "no ScrollView" bug class this codebase already hit and fixed on Progreso/Calendario in earlier phases. Fixed by wrapping the form in a `ScrollView`.
+  2. **New feature (human's decision): a due-time notification** ("¡Es para ahora!"), independent of any reminder. `src/lib/notifications/index.ts` gained `scheduleDueNotification`/`cancelDueNotification`, keyed by a **deterministic** `due-{taskId}` identifier (never an OS-assigned one, unlike a reminder's own `notificationId`) — this is the concrete mechanism that guarantees a reminder's notification and the due-time notification can never cancel or overwrite each other, per the human's explicit requirement. Shares the `reminders-v2` channel (same heads-up capability). Wired into `createTask` (every task gets one, independent of whether it has reminders), `cancelAllRemindersForTask` (covers task completion, deletion, and subject/semester cascade-deletes "for free" since they already route through this one function), and `rescheduleRemindersForTask` (due-date edits reschedule or cancel it to match). The shared `__mocks__/expo-notifications.ts` test mock was also fixed to echo back a caller-supplied `identifier` (it didn't before) — more accurate to the real SDK, and what makes the deterministic-id behavior actually testable. 9 new/extended tests.
+- **No per-task subagent review this round** — small, human-scoped diff; verified via the checks below plus the human's own on-device re-test.
+- Final combined check: **226/226 tests (25 suites)**, `tsc`/`lint`/`prettier` all clean.
+- **On-device verification (human, real Samsung A35 / Android 16, after rebuild)**: reminders fire punctually with exact alarms granted, heads-up banners work, and the new due-time notification fires correctly and independently of the reminder notification. All ✔.
+- **Dev-workflow discovery, saved to memory**: on the Android **emulator**, a manifest-level permission change (`SCHEDULE_EXACT_ALARM` etc., added in Phase 10.6) only takes effect after a full debug reinstall (`expo prebuild` regenerating `AndroidManifest.xml` + a fresh install) — a plain JS reload/Fast Refresh does not pick it up. Worth remembering before assuming a permission change "isn't working" on the emulator.
+
+<details>
+<summary>Phase 10.6 — Punctuality: exact alarms + Puntualidad settings UI (complete, prior phase)</summary>
+
+**Phase 10.6 — Punctuality** (ad-hoc, human-directed, no written plan doc) is **COMPLETE and pushed** to `origin/main`. Commits `ed21122` (Task 1: `app.json` permissions) → `2be34f3` (Tasks 2+4: Puntualidad UI + short-offset warning) → `faa71bc` (Task 5: docs).
+
+- Human-provided evidence framing this phase: reminders fire at the exact minute on the emulator but lag with 1-2 minute offsets on a real Samsung A35 (Android 16) — non-exact `AlarmManager` batching + OneUI battery optimization, not a code bug (see Phase 10.5's investigation below). OS-level settings (heads-up/"Emergentes") were already confirmed enabled by the human before this phase started.
+- 5 items:
+  1. **`app.json`** — added `SCHEDULE_EXACT_ALARM` and `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` to `android.permissions`. Native-manifest change, requires a rebuild (the human's own explicit, accepted tradeoff for this phase — "UN rebuild al final").
+  2. **New "Puntualidad" section in Configuración** (`app/configuracion/index.tsx`) — two buttons via `expo-intent-launcher`, launching `android.settings.REQUEST_SCHEDULE_EXACT_ALARM` and `android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`. Both exact constant strings and their data-URI requirements (the battery-optimization intent _requires_ a `package:<id>` data URI; the exact-alarm one doesn't) were verified directly against `developer.android.com`'s `Settings` class reference before writing the code, not from memory. `app/onboarding/perfil.tsx` gained a one-line hint pointing at this section.
+  3. **No code change needed for "schedule exact when the system allows it."** Verified against the SDK 57 `expo-notifications` reference: `DateTriggerInput` has no JS-level "exact" flag at all (`channelId`/`date`/`type` only) — whether a DATE trigger fires exactly is decided transparently at the native layer purely from whether `SCHEDULE_EXACT_ALARM` is declared _and granted_. Declaring it (item 1) + directing the user to grant it (item 2) is the whole mechanism; there is no JS-side "fallback inexact" branch to write, since the library already falls back automatically when the permission isn't granted (that's the pre-existing, imprecise behavior).
+  4. **Soft warning in `ReminderPicker`** for relative offsets under 5 minutes, pointing at Configuración → Puntualidad. Deliberately shown _unconditionally_ (not gated on live exact-alarm-grant status) — `expo-notifications` exposes no JS API to query that (no `canScheduleExactAlarms()` equivalent), and precisely conditioning it would need a small custom native module, which this phase did not add. Disclosed to the human as a known limitation, not silently narrowed.
+  5. **`docs/08-notifications.md`** updated to close the exact-alarm decision that had been left explicitly open since Phase 4.
+- Final combined check: **217/217 tests (25 suites)**, `tsc`/`lint`/`prettier` all clean.
+
+</details>
+
+<details>
+<summary>Phase 10.5 — Post-launch fast-follow: 6 real-device bugs/features + reminder-timing investigation (complete, prior phase)</summary>
+
+**Phase 10.5 — Post-launch fast-follow** (plan: `docs/superpowers/plans/2026-08-18-phase10.5-fast-follow.md`) is **COMPLETE and pushed** to `origin/main`. Findings from a real release build on the human's own phone, six items (A-D bugs, E-F features): commits `3112427` → `ae871f8` → `1afc7f8` → `ef7c41e` → `bfa2d90` → `6e30f9a` → `c6171d2` (a review-driven fix, see below) → `59082be` (a separate follow-up investigation, see below).
+
+- **A** — Mis Tareas' filter-chip row was stretching/squashing pills depending on layout timing (a Yoga/Android `flexGrow` quirk on an unstyled horizontal `ScrollView`, unrelated to actual task count despite the reported correlation). Fixed with an explicit `flexGrow: 0` on the `ScrollView` and `alignItems: "center"` on the row.
+- **B** — invisible (white-on-white) placeholder text on every `TextInput` in the app (12 sites across 8 files) — none had `placeholderTextColor` set. Added `colors.textMuted` uniformly.
+- **C** — "Crear tarea"'s submit button falling under the 3-button nav bar on phones without gesture navigation. Root cause: 8 non-tab screens used `SafeAreaView edges={["top"]}`, opting out of the bottom inset entirely. Extended all 8 to `edges={["top", "bottom"]}`.
+- **D** — reminders never showing as heads-up banners. Moved to a **new** `reminders-v2` Android notification channel at `AndroidImportance.HIGH` with `sound: null` — a **new** channel id was required because Android does not allow raising importance on an already-created channel (an OS limitation, not an Expo one); any existing install's old `"reminders"` channel is permanently dead, disclosed as an accepted one-time side effect.
+- **E** — "Acerca de" section in Configuración showing the app version via `expo-constants` (first real usage of that already-installed-but-unused dependency).
+- **F** — onboarding gained a second screen (`app/onboarding/perfil.tsx`) asking for a nickname after the semester is created, before landing on the Dashboard. Required a genuinely careful `app/_layout.tsx` redirect-effect change (see the review fix below) — this file already carries hard-won scar tissue from an earlier onboarding-navigation race (see its own inline comments), so extending the two-step flow needed the same rigor.
+- **Review-driven fix (`c6171d2`)**: a scoped review of just this phase's commits (deliberately not a whole-branch review, to save tokens) found that item F's first implementation had `primer-semestre.tsx` navigate to the new screen imperatively right after `createSemester(...)` — which reintroduces the _exact_ live-query race `app/_layout.tsx`'s own comments already document being fixed once before. Redesigned so `_layout.tsx` alone drives the primer-semestre → perfil transition, as a same-render-pass state check instead of a second, independently-timed navigation call; `primer-semestre.tsx` went back to doing no navigation at all. Also added a missed double-submit guard on the new screen's Continuar button.
+- **Follow-up investigation (`59082be`), triggered by a second real-device report**: reminders were firing at the task's _due time_ instead of the configured offset time (tested 10:14 vs. 10:15, 10:18 vs. 10:20; confirmed present in pre-10.5 builds too, so not a regression from this phase). Traced end to end and proved via new regression tests that this is **not** a code defect — `computeFireAt`'s math and `scheduleReminderNotification`'s trigger binding are both correct, and there is exactly one `scheduleNotificationAsync` call site per reminder (no separate "due time" notification existed yet at this point in the timeline for one to collide with — that only came later, in Phase 10.7, with a _deliberately_ distinct identifier). Root cause: Android's non-exact `AlarmManager` batching plus Samsung OneUI battery optimization — this became the evidence basis Phase 10.6 was scoped against.
+- Final combined check after all of the above: **217/217 tests (25 suites)**, `tsc`/`lint`/`prettier` all clean.
+- On-device checklist: `.superpowers/sdd/phase10.5-device-checklist.md` (local-only, gitignored like Phase 10's own checklist).
+
+</details>
+
+<details>
+<summary>Phase 10 — Empty states, confirmations, accessibility, theming cleanup (complete, prior phase — last MVP phase)</summary>
 
 **Phase 10 — Empty states, confirmations, accessibility, theming cleanup** (plan: `docs/superpowers/plans/2026-08-17-phase10-polish.md`) is **COMPLETE and pushed** to `origin/master` — **this was the last MVP phase.** Commits `3c5b354` (Task 1: subtask-delete confirmation) → `ba248dd` (Task 2: `colors.onColor` + 25-site hex migration) → `0e7f659` (Task 3: Semestres defensive empty state).
 
@@ -15,6 +62,8 @@
 - Final combined check: **213/213 tests (24 suites)**, `tsc`/`lint`/`prettier` all clean. Zero new dependencies, zero `src/domain`/`src/db` changes (whole-branch review confirmed via `git diff --stat` that this phase was genuinely UI-only as claimed).
 - **On-device checklist for the human**: `.superpowers/sdd/phase10-device-checklist.md` (subtask-delete confirmation, visual spot-check of migrated colors, Semestres empty state, font scaling at 200%, screen-reader spot check, the gear-icon `hitSlop` fix still holding).
 - Full detail lives in `.superpowers/sdd/progress.md`'s "UniTask Phase 10" section.
+
+</details>
 
 <details>
 <summary>Phase 9.5 — UI consistency pass (complete, prior phase)</summary>
@@ -155,4 +204,4 @@
 
 </details>
 
-**MVP (Phases 0-10) is COMPLETE** per `11-roadmap.md` — see the "Current Phase Status" section at the top of this file for Phase 10's close-out detail. Nothing past Phase 10 is planned yet; `11-roadmap.md`'s own "Fast-follow candidates" section lists explicit post-MVP ideas (calendar week/day views, iOS support, dark mode, cloud sync, merge import, etc.) as the next place to look when picking what comes next.
+**MVP (Phases 0-10) is COMPLETE** per `11-roadmap.md`, and three post-MVP fast-follow phases (10.5, 10.6, 10.7) are also complete — see the "Current Phase Status" section at the top of this file for full detail. All were real-device-driven (Samsung A35, Android 16), not roadmap-planned: a batch of release-build bugs/features (10.5), reminder punctuality via exact-alarm permissions (10.6), and a due-time notification + a Configuración regression fix (10.7). Tagged `v1.1-notificaciones`. Nothing further is planned yet; `11-roadmap.md`'s own "Fast-follow candidates" section lists explicit post-MVP ideas (calendar week/day views, iOS support, dark mode, cloud sync, merge import, etc.) as the next place to look when picking what comes next.
