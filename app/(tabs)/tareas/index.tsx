@@ -2,7 +2,15 @@ import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { eq } from "drizzle-orm";
 import { Link, router } from "expo-router";
 import { useEffect, useState } from "react";
-import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  Alert,
+  FlatList,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 import { db } from "@/db/client";
 import { SemesterReadOnlyError } from "@/db/repositories/subject";
@@ -124,7 +132,11 @@ export default function TareasScreen() {
         <Text style={styles.title}>Mis Tareas</Text>
       </View>
 
-      <View style={styles.chipsRow}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.chipsRow}
+      >
         {FILTER_CHIPS.map((chip) => (
           <TouchableOpacity
             key={chip}
@@ -136,7 +148,7 @@ export default function TareasScreen() {
             </Text>
           </TouchableOpacity>
         ))}
-      </View>
+      </ScrollView>
 
       {!loaded ? (
         <View style={styles.empty}>
@@ -216,7 +228,6 @@ const styles = StyleSheet.create({
   title: { fontSize: 22, fontWeight: "700", color: colors.text },
   chipsRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
     gap: 8,
     paddingHorizontal: 20,
     paddingBottom: 12,
