@@ -351,6 +351,7 @@ export default function DetalleDeTareaScreen() {
                     value={editingText}
                     onChangeText={setEditingText}
                     onSubmitEditing={() => handleRenameSubtask(subtask.id, editingText)}
+                    placeholderTextColor={colors.textMuted}
                     autoFocus
                   />
                   <View style={styles.subtaskEditActions}>
@@ -404,6 +405,7 @@ export default function DetalleDeTareaScreen() {
             value={newSubtaskText}
             onChangeText={setNewSubtaskText}
             placeholder="Nueva subtarea"
+            placeholderTextColor={colors.textMuted}
             onSubmitEditing={handleAddSubtask}
           />
           <TouchableOpacity

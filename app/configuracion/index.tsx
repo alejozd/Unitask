@@ -144,6 +144,7 @@ export default function ConfiguracionScreen() {
             value={nickname}
             onChangeText={setNickname}
             placeholder="Ej. Ale"
+            placeholderTextColor={colors.textMuted}
           />
           <Text style={styles.label}>Nombre completo</Text>
           <TextInput
@@ -151,6 +152,7 @@ export default function ConfiguracionScreen() {
             value={fullName}
             onChangeText={setFullName}
             placeholder="Ej. Alejandro Díaz"
+            placeholderTextColor={colors.textMuted}
           />
           <TouchableOpacity
             style={[styles.saveButton, saving && styles.saveButtonDisabled]}

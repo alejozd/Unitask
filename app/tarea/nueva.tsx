@@ -166,6 +166,7 @@ export default function NuevaTareaScreen() {
                   value={newSubtaskText}
                   onChangeText={setNewSubtaskText}
                   placeholder="Ej. Investigar fuentes"
+                  placeholderTextColor={colors.textMuted}
                   onSubmitEditing={handleAddSubtaskDraft}
                 />
                 <TouchableOpacity style={styles.subtaskAddButton} onPress={handleAddSubtaskDraft}>

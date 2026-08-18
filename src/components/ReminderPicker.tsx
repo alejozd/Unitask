@@ -93,6 +93,7 @@ export function ReminderPicker({ onAdd }: ReminderPickerProps) {
             style={styles.offsetInput}
             value={offsetValueText}
             onChangeText={setOffsetValueText}
+            placeholderTextColor={colors.textMuted}
             keyboardType="number-pad"
           />
           <View style={styles.unitRow}>

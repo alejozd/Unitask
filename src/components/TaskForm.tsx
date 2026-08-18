@@ -77,6 +77,7 @@ export function TaskForm({
             value={field.value}
             onChangeText={field.onChange}
             placeholder="Ej. Entregar ensayo final"
+            placeholderTextColor={colors.textMuted}
           />
         )}
       />
@@ -92,6 +93,7 @@ export function TaskForm({
             value={field.value}
             onChangeText={field.onChange}
             placeholder="Detalles adicionales"
+            placeholderTextColor={colors.textMuted}
             multiline
           />
         )}

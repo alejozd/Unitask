@@ -47,6 +47,7 @@ export function SubjectForm({ initialValues, submitLabel, onSubmit }: SubjectFor
             value={field.value}
             onChangeText={field.onChange}
             placeholder="Ej. Cálculo II"
+            placeholderTextColor={colors.textMuted}
           />
         )}
       />
@@ -62,6 +63,7 @@ export function SubjectForm({ initialValues, submitLabel, onSubmit }: SubjectFor
             value={field.value}
             onChangeText={field.onChange}
             placeholder="Ej. MAT-201"
+            placeholderTextColor={colors.textMuted}
           />
         )}
       />
@@ -76,6 +78,7 @@ export function SubjectForm({ initialValues, submitLabel, onSubmit }: SubjectFor
             value={field.value}
             onChangeText={field.onChange}
             placeholder="Ej. Dra. García"
+            placeholderTextColor={colors.textMuted}
           />
         )}
       />

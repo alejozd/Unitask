@@ -48,6 +48,7 @@ export default function PrimerSemestreScreen() {
       <TextInput
         style={styles.input}
         placeholder="Ej. 2026-1"
+        placeholderTextColor={colors.textMuted}
         value={label}
         onChangeText={setLabel}
         autoFocus

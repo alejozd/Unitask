@@ -97,6 +97,7 @@ export default function SemestresScreen() {
         <TextInput
           style={styles.input}
           placeholder="Nuevo semestre (ej. 2026-2)"
+          placeholderTextColor={colors.textMuted}
           value={newLabel}
           onChangeText={setNewLabel}
         />
