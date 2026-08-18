@@ -2,8 +2,13 @@ import { useEffect, useState } from "react";
 import { router } from "expo-router";
 import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import * as DocumentPicker from "expo-document-picker";
+import * as Sharing from "expo-sharing";
+import { File, Paths } from "expo-file-system";
 
 import { getProfile, saveProfile } from "@/db/repositories/settings";
+import { exportBackupJson, importBackup } from "@/db/repositories/backup";
+import { parseBackupFile, type BackupTables } from "@/domain/backup";
 import { colors } from "@/theme";
 
 export default function ConfiguracionScreen() {
@@ -11,6 +16,8 @@ export default function ConfiguracionScreen() {
   const [fullName, setFullName] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -37,6 +44,78 @@ export default function ConfiguracionScreen() {
       Alert.alert("Error", "No se pudo guardar el perfil.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const json = await exportBackupJson();
+      const file = new File(Paths.cache, `unitask-backup-${Date.now()}.json`);
+      file.create();
+      file.write(json);
+      const available = await Sharing.isAvailableAsync();
+      if (available) {
+        await Sharing.shareAsync(file.uri, { mimeType: "application/json" });
+      }
+    } catch {
+      Alert.alert("Error", "No se pudo exportar los datos.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  function reasonMessage(reason: "not-json" | "unsupported-version" | "wrong-shape"): string {
+    switch (reason) {
+      case "not-json":
+        return "El archivo no es un JSON válido.";
+      case "unsupported-version":
+        return "Este archivo no es una copia de seguridad de UniTask compatible.";
+      case "wrong-shape":
+        return "El archivo no tiene el formato esperado de una copia de seguridad de UniTask.";
+    }
+  }
+
+  async function handleImportPress() {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: "application/json",
+      copyToCacheDirectory: true,
+    });
+    if (result.canceled) return;
+
+    const asset = result.assets[0];
+    const jsonText = await new File(asset.uri).text();
+    const parsed = parseBackupFile(jsonText);
+    if (!parsed.valid) {
+      Alert.alert("Archivo inválido", reasonMessage(parsed.reason));
+      return;
+    }
+
+    Alert.alert(
+      "¿Reemplazar todos los datos?",
+      "Esta acción reemplazará TODOS los datos actuales y no se puede deshacer. Los archivos adjuntos no se restauran, solo su información.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        { text: "Reemplazar", style: "destructive", onPress: () => runImport(parsed.data) },
+      ],
+    );
+  }
+
+  async function runImport(data: BackupTables) {
+    setImporting(true);
+    try {
+      const result = await importBackup(data);
+      Alert.alert(
+        "Datos importados",
+        result.remindersUnscheduled > 0
+          ? `${result.remindersScheduled} recordatorio(s) reprogramado(s). ${result.remindersUnscheduled} no se pudieron reprogramar (permiso de notificaciones).`
+          : `${result.remindersScheduled} recordatorio(s) reprogramado(s).`,
+        [{ text: "OK", onPress: () => router.replace("/(tabs)") }],
+      );
+    } catch {
+      Alert.alert("Error", "No se pudo importar los datos.");
+    } finally {
+      setImporting(false);
     }
   }
 
@@ -74,6 +153,31 @@ export default function ConfiguracionScreen() {
           >
             <Text style={styles.saveButtonText}>{saving ? "Guardando…" : "Guardar"}</Text>
           </TouchableOpacity>
+
+          <View style={styles.dataSection}>
+            <Text style={styles.sectionTitle}>Datos</Text>
+            <Text style={styles.sectionNote}>
+              Los archivos adjuntos no se incluyen en la exportación, solo su información.
+            </Text>
+            <TouchableOpacity
+              style={[styles.secondaryButton, exporting && styles.saveButtonDisabled]}
+              onPress={handleExport}
+              disabled={exporting || importing}
+            >
+              <Text style={styles.secondaryButtonText}>
+                {exporting ? "Exportando…" : "Exportar datos"}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.secondaryButton, importing && styles.saveButtonDisabled]}
+              onPress={handleImportPress}
+              disabled={exporting || importing}
+            >
+              <Text style={styles.secondaryButtonText}>
+                {importing ? "Importando…" : "Importar datos"}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       )}
     </SafeAreaView>
@@ -112,4 +216,21 @@ const styles = StyleSheet.create({
   },
   saveButtonDisabled: { opacity: 0.5 },
   saveButtonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "600" },
+  dataSection: {
+    gap: 8,
+    marginTop: 24,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  sectionTitle: { fontSize: 16, fontWeight: "700", color: colors.text },
+  sectionNote: { fontSize: 12, color: colors.textMuted, marginBottom: 4 },
+  secondaryButton: {
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: 8,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  secondaryButtonText: { color: colors.primary, fontSize: 16, fontWeight: "600" },
 });
