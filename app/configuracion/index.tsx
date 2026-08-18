@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import * as DocumentPicker from "expo-document-picker";
 import * as Sharing from "expo-sharing";
 import { File, Paths } from "expo-file-system";
+import Constants from "expo-constants";
 
 import { getProfile, saveProfile } from "@/db/repositories/settings";
 import { exportBackupJson, importBackup } from "@/db/repositories/backup";
@@ -185,6 +186,11 @@ export default function ConfiguracionScreen() {
                 {importing ? "Importando…" : "Importar datos"}
               </Text>
             </TouchableOpacity>
+          </View>
+
+          <View style={styles.dataSection}>
+            <Text style={styles.sectionTitle}>Acerca de</Text>
+            <Text style={styles.sectionNote}>UniTask v{Constants.expoConfig?.version ?? "—"}</Text>
           </View>
         </View>
       )}
