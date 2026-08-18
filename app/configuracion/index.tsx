@@ -1,6 +1,14 @@
 import { useEffect, useState } from "react";
 import { router } from "expo-router";
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import {
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as DocumentPicker from "expo-document-picker";
 import * as Sharing from "expo-sharing";
@@ -175,7 +183,7 @@ export default function ConfiguracionScreen() {
           <Text style={styles.loadingText}>Cargando…</Text>
         </View>
       ) : (
-        <View style={styles.form}>
+        <ScrollView contentContainerStyle={styles.form}>
           <Text style={styles.label}>Apodo</Text>
           <TextInput
             style={styles.input}
@@ -246,7 +254,7 @@ export default function ConfiguracionScreen() {
             <Text style={styles.sectionTitle}>Acerca de</Text>
             <Text style={styles.sectionNote}>UniTask v{Constants.expoConfig?.version ?? "—"}</Text>
           </View>
-        </View>
+        </ScrollView>
       )}
     </SafeAreaView>
   );

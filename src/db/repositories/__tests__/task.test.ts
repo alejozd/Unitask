@@ -83,6 +83,10 @@ beforeEach(() => {
     return `mock-notification-${notificationCounter}`;
   });
   mockedNotifications.cancelReminderNotification.mockResolvedValue(undefined);
+  mockedNotifications.scheduleDueNotification.mockImplementation(
+    async (taskId) => `mock-due-${taskId}`,
+  );
+  mockedNotifications.cancelDueNotification.mockResolvedValue(undefined);
 });
 
 describe("task repository", () => {
@@ -421,5 +425,96 @@ describe("task repository", () => {
 
     expect(result.remindersRemoved).toBe(0);
     expect(mockedNotifications.cancelReminderNotification).not.toHaveBeenCalled();
+  });
+
+  describe("due-time notification (Phase 10.6)", () => {
+    it("creates a task and schedules its own due-time notification, independent of reminders", async () => {
+      const db = freshTestDb();
+      const { subjectId } = await seedActiveSemesterWithSubject(db);
+
+      const { task } = await createTask(
+        { title: "Sin recordatorios", subjectId, dueDateTime: future, priority: "Media" },
+        db,
+      );
+
+      expect(mockedNotifications.scheduleDueNotification).toHaveBeenCalledWith(task.id, future, {
+        taskTitle: "Sin recordatorios",
+        subjectName: "Cálculo II",
+      });
+    });
+
+    it("does not schedule a due-time notification for a task already due in the past", async () => {
+      const db = freshTestDb();
+      const { subjectId } = await seedActiveSemesterWithSubject(db);
+      const past = new Date(Date.now() - 1000 * 60 * 60);
+
+      await createTask({ title: "Vencida", subjectId, dueDateTime: past, priority: "Media" }, db);
+
+      expect(mockedNotifications.scheduleDueNotification).not.toHaveBeenCalled();
+    });
+
+    it("completing a task cancels its due-time notification", async () => {
+      const db = freshTestDb();
+      const { subjectId } = await seedActiveSemesterWithSubject(db);
+      const { task } = await createTask(
+        { title: "Tarea", subjectId, dueDateTime: future, priority: "Media" },
+        db,
+      );
+
+      await completeTaskAction(task.id, db);
+
+      expect(mockedNotifications.cancelDueNotification).toHaveBeenCalledWith(task.id);
+    });
+
+    it("deleting a task cancels its due-time notification", async () => {
+      const db = freshTestDb();
+      const { subjectId } = await seedActiveSemesterWithSubject(db);
+      const { task } = await createTask(
+        { title: "Tarea", subjectId, dueDateTime: future, priority: "Media" },
+        db,
+      );
+
+      await deleteTask(task.id, db);
+
+      expect(mockedNotifications.cancelDueNotification).toHaveBeenCalledWith(task.id);
+    });
+
+    it("updating a task's due date reschedules its due-time notification to the new date", async () => {
+      const db = freshTestDb();
+      const { subjectId } = await seedActiveSemesterWithSubject(db);
+      const { task } = await createTask(
+        { title: "Tarea", subjectId, dueDateTime: future, priority: "Media" },
+        db,
+      );
+      mockedNotifications.cancelDueNotification.mockClear();
+      mockedNotifications.scheduleDueNotification.mockClear();
+
+      const newDueDate = new Date(Date.now() + 1000 * 60 * 60 * 24 * 14);
+      await updateTask(task.id, { dueDateTime: newDueDate }, db);
+
+      expect(mockedNotifications.cancelDueNotification).toHaveBeenCalledWith(task.id);
+      expect(mockedNotifications.scheduleDueNotification).toHaveBeenCalledWith(
+        task.id,
+        newDueDate,
+        { taskTitle: "Tarea", subjectName: "Cálculo II" },
+      );
+    });
+
+    it("updating a task's due date to the past cancels but does not reschedule its due-time notification", async () => {
+      const db = freshTestDb();
+      const { subjectId } = await seedActiveSemesterWithSubject(db);
+      const { task } = await createTask(
+        { title: "Tarea", subjectId, dueDateTime: future, priority: "Media" },
+        db,
+      );
+      mockedNotifications.cancelDueNotification.mockClear();
+      mockedNotifications.scheduleDueNotification.mockClear();
+
+      const pastDueDate = new Date(Date.now() - 1000 * 60 * 60);
+      await updateTask(task.id, { dueDateTime: pastDueDate }, db);
+
+      expect(mockedNotifications.cancelDueNotification).toHaveBeenCalledWith(task.id);
+      expect(mockedNotifications.scheduleDueNotification).not.toHaveBeenCalled();
+    });
   });
 });

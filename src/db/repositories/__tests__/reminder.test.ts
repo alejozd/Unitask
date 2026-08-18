@@ -39,6 +39,10 @@ beforeEach(() => {
     return `mock-notification-${notificationCounter}`;
   });
   mockedNotifications.cancelReminderNotification.mockResolvedValue(undefined);
+  mockedNotifications.scheduleDueNotification.mockImplementation(
+    async (taskId) => `mock-due-${taskId}`,
+  );
+  mockedNotifications.cancelDueNotification.mockResolvedValue(undefined);
 });
 
 async function seedTaskInActiveSemester(db: ReturnType<typeof freshTestDb>, dueDateTime: Date) {
@@ -131,6 +135,11 @@ describe("reminder repository", () => {
       // almost a full day in the past.
       const dueDateTime = new Date(Date.now() + 1000 * 60 * 30);
       const { task } = await seedTaskInActiveSemester(db, dueDateTime);
+      // seedTaskInActiveSemester's own createTask call already requests
+      // permission once for the task's due-time notification (Phase 10.6,
+      // scheduled since dueDateTime is still in the future) — clear that
+      // before isolating addReminder's own behavior below.
+      mockedNotifications.requestNotificationPermission.mockClear();
 
       const reminder = await addReminder(
         task.id,
@@ -231,6 +240,9 @@ describe("reminder repository", () => {
       const rows = await db.select().from(reminders).where(eq(reminders.taskId, task.id));
       expect(rows).toHaveLength(2);
       expect(rows.every((r) => r.notificationId === null)).toBe(true);
+      // Phase 10.6: also cancels the task's own due-time notification,
+      // by a different identifier — never mixed up with the reminders above.
+      expect(mockedNotifications.cancelDueNotification).toHaveBeenCalledWith(task.id);
       void r1;
       void r2;
     });
@@ -273,6 +285,15 @@ describe("reminder repository", () => {
         Math.floor(newDueDateTime.getTime() / 1000) * 1000 - 86_400_000,
       );
       expect(updated.notificationId).toBe("mock-notification-2");
+      // Phase 10.6: the due-time notification is rescheduled to the new due
+      // date too, using its own deterministic identifier — independent of
+      // the reminder rescheduling asserted above.
+      expect(mockedNotifications.cancelDueNotification).toHaveBeenCalledWith(task.id);
+      expect(mockedNotifications.scheduleDueNotification).toHaveBeenCalledWith(
+        task.id,
+        newDueDateTime,
+        { taskTitle: task.title, subjectName: "Cálculo II" },
+      );
     });
 
     it("removes a relative reminder whose recomputed fire time is now in the past", async () => {

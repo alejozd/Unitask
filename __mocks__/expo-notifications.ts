@@ -45,8 +45,14 @@ export async function requestPermissionsAsync(): Promise<{ granted: boolean }> {
   return { granted: true };
 }
 
-export async function scheduleNotificationAsync(): Promise<string> {
-  return "mock-notification-id";
+export async function scheduleNotificationAsync(request?: {
+  identifier?: string;
+}): Promise<string> {
+  // Real expo-notifications echoes back a caller-supplied `identifier`
+  // (that's the whole point of the field — see NotificationRequestInput in
+  // the SDK 57 docs) rather than always generating a fresh one. Phase 10.6's
+  // due-time notification relies on this so its identifier is deterministic.
+  return request?.identifier ?? "mock-notification-id";
 }
 
 export async function cancelScheduledNotificationAsync(): Promise<void> {

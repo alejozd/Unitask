@@ -7,8 +7,10 @@ import type { Database } from "@/db/repositories/semester";
 import { reminders, type Reminder } from "@/db/schema/reminder";
 import { subjects } from "@/db/schema/subject";
 import {
+  cancelDueNotification,
   cancelReminderNotification,
   requestNotificationPermission,
+  scheduleDueNotification,
   scheduleReminderNotification,
 } from "@/lib/notifications";
 import {
@@ -94,10 +96,15 @@ export async function removeReminder(id: string, database: Database = defaultDb)
 /**
  * Cancels every still-pending (notificationId set) reminder's OS
  * notification for a task and clears notificationId, WITHOUT deleting the
- * rows. Used by task completion (03-business-rules.md §5) and task
- * deletion (§6) — for deletion, the rows themselves are removed a moment
- * later by ON DELETE CASCADE when the task row is deleted, so this
- * function's job there is only the OS-side cancellation.
+ * rows, AND cancels the task's own due-time notification (Phase 10.6,
+ * "¡Es para ahora!") — the two notification types are cancelled by
+ * different identifiers (a reminder's is OS-assigned and stored per row;
+ * the due notification's is the deterministic `due-{taskId}`), so
+ * cancelling one can never cancel the other. Used by task completion
+ * (03-business-rules.md §5) and task deletion (§6) — for deletion, the
+ * reminder rows themselves are removed a moment later by ON DELETE CASCADE
+ * when the task row is deleted, so this function's job there is only the
+ * OS-side cancellation.
  */
 export async function cancelAllRemindersForTask(
   taskId: string,
@@ -117,6 +124,8 @@ export async function cancelAllRemindersForTask(
       .set({ notificationId: null })
       .where(eq(reminders.id, reminder.id));
   }
+
+  await cancelDueNotification(taskId);
 }
 
 export interface RescheduleResult {
@@ -195,6 +204,20 @@ export async function rescheduleRemindersForTask(
     // the past (already fired, but never reconciled since there is no
     // notification-received listener yet) — left untouched, matching the
     // domain function's contract.
+  }
+
+  // The due-time notification (Phase 10.6, "¡Es para ahora!") isn't a
+  // Reminder row, so it isn't covered by the actions loop above — always
+  // cancel-and-reschedule it here, unconditionally, same "cheap, not worth
+  // diffing" reasoning as this function's own doc comment gives for
+  // reminders. `scheduleDueNotification`'s fixed identifier means the
+  // reschedule doesn't need to look up or persist anything first.
+  await cancelDueNotification(taskId);
+  if (newDueDateTime.getTime() > now.getTime() && permission.granted) {
+    await scheduleDueNotification(taskId, newDueDateTime, {
+      taskTitle: task.title,
+      subjectName,
+    });
   }
 
   return { removedCount };

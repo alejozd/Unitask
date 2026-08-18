@@ -1,6 +1,12 @@
 import * as Notifications from "expo-notifications";
 
-import { ensureReminderChannel, scheduleReminderNotification } from "@/lib/notifications";
+import {
+  cancelDueNotification,
+  dueNotificationIdentifier,
+  ensureReminderChannel,
+  scheduleDueNotification,
+  scheduleReminderNotification,
+} from "@/lib/notifications";
 
 // `src/lib/notifications/index.ts` is otherwise untested per this project's
 // convention (thin native wrapper, verified via the repository layer + the
@@ -17,6 +23,15 @@ import { ensureReminderChannel, scheduleReminderNotification } from "@/lib/notif
 // text, a completely separate field). The actual observed delay was
 // root-caused to Android's own non-exact AlarmManager batching, not this
 // code — see the reminder-scheduling.test.ts entries added alongside this.
+
+// Each test below spies fresh via jest.spyOn — without this, a spy's call
+// count/history would leak into the next test in this file (no global
+// clearMocks/resetMocks config; other test files avoid this via their own
+// per-file `jest.clearAllMocks()` in beforeEach, but those mock the whole
+// `@/lib/notifications` module rather than spying on the real one).
+afterEach(() => {
+  jest.restoreAllMocks();
+});
 
 describe("scheduleReminderNotification", () => {
   it("schedules the trigger at the computed fire time, not at the task's due date", async () => {
@@ -54,5 +69,49 @@ describe("ensureReminderChannel", () => {
       importance: Notifications.AndroidImportance.HIGH,
       sound: null,
     });
+  });
+});
+
+// Phase 10.6: the due-time notification ("¡Es para ahora!") is a distinct
+// feature from a reminder's own notification, deliberately identified
+// differently so cancelling/rescheduling one can never touch the other.
+describe("scheduleDueNotification", () => {
+  it("uses a deterministic due-{taskId} identifier, distinct from any OS-assigned reminder id", async () => {
+    const spy = jest.spyOn(Notifications, "scheduleNotificationAsync");
+    const fireAt = new Date("2026-06-10T10:15:00.000Z");
+
+    const identifier = await scheduleDueNotification("task-42", fireAt, {
+      taskTitle: "Entregar ensayo",
+      subjectName: "Cálculo II",
+    });
+
+    expect(identifier).toBe("due-task-42");
+    expect(spy).toHaveBeenCalledTimes(1);
+    const [request] = spy.mock.calls[0];
+    expect(request.identifier).toBe("due-task-42");
+    expect(request.content.title).toBe("¡Es para ahora!");
+    expect(request.trigger).toMatchObject({
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: fireAt,
+      channelId: "reminders-v2",
+    });
+  });
+});
+
+describe("dueNotificationIdentifier", () => {
+  it("is stable for the same taskId and distinct across different taskIds", () => {
+    expect(dueNotificationIdentifier("task-1")).toBe("due-task-1");
+    expect(dueNotificationIdentifier("task-1")).toBe(dueNotificationIdentifier("task-1"));
+    expect(dueNotificationIdentifier("task-1")).not.toBe(dueNotificationIdentifier("task-2"));
+  });
+});
+
+describe("cancelDueNotification", () => {
+  it("cancels by the deterministic due-{taskId} identifier", async () => {
+    const spy = jest.spyOn(Notifications, "cancelScheduledNotificationAsync");
+
+    await cancelDueNotification("task-42");
+
+    expect(spy).toHaveBeenCalledWith("due-task-42");
   });
 });

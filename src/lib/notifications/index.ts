@@ -101,3 +101,60 @@ export async function scheduleReminderNotification(
 export async function cancelReminderNotification(notificationId: string): Promise<void> {
   await Notifications.cancelScheduledNotificationAsync(notificationId);
 }
+
+/**
+ * A deterministic (not OS-generated) identifier for a task's due-time
+ * notification (Phase 10.6, "¡Es para ahora!") — always `due-{taskId}`.
+ * Deliberately distinct in shape from a reminder's `notificationId`, which
+ * is always an opaque OS-assigned string stored per Reminder row: cancelling
+ * or rescheduling the due notification never needs a DB lookup (unlike
+ * reminders), and the "due-" prefix guarantees it can never collide with an
+ * OS-generated id, so cancelling one type can never accidentally cancel the
+ * other.
+ */
+export function dueNotificationIdentifier(taskId: string): string {
+  return `due-${taskId}`;
+}
+
+export interface DueNotificationContent {
+  taskTitle: string;
+  subjectName: string;
+}
+
+/**
+ * Schedules the task's own due-time notification ("¡Es para ahora!"),
+ * separate from any reminder. Uses a fixed identifier (see
+ * `dueNotificationIdentifier`) instead of letting the OS assign one, so a
+ * reschedule can cancel the previous due notification without having
+ * persisted its id anywhere first — `scheduleNotificationAsync` overwrites
+ * any existing request under the same identifier. Shares `reminders-v2` so
+ * it gets the same heads-up-capable channel as reminder notifications.
+ */
+export async function scheduleDueNotification(
+  taskId: string,
+  fireAt: Date,
+  content: DueNotificationContent,
+): Promise<string> {
+  return Notifications.scheduleNotificationAsync({
+    identifier: dueNotificationIdentifier(taskId),
+    content: {
+      title: "¡Es para ahora!",
+      body: `${content.taskTitle} · ${content.subjectName}`,
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: fireAt,
+      channelId: REMINDER_CHANNEL_ID,
+    },
+  });
+}
+
+/**
+ * Cancels a task's due-time notification. Safe to call even if none was
+ * ever scheduled for this task (same no-op-safe contract as
+ * `cancelReminderNotification`) — callers never need to track whether one
+ * exists first.
+ */
+export async function cancelDueNotification(taskId: string): Promise<void> {
+  await Notifications.cancelScheduledNotificationAsync(dueNotificationIdentifier(taskId));
+}

@@ -10,10 +10,12 @@ import {
   cancelAllRemindersForTask,
   rescheduleRemindersForTask,
 } from "@/db/repositories/reminder";
+import { subjects } from "@/db/schema/subject";
 import { subtasks } from "@/db/schema/subtask";
 import { tasks, type Task } from "@/db/schema/task";
 import { completeTask } from "@/domain/task-completion";
 import type { ReminderSpec } from "@/domain/reminder-scheduling";
+import { requestNotificationPermission, scheduleDueNotification } from "@/lib/notifications";
 
 export { assertTaskEditable };
 
@@ -86,6 +88,25 @@ export async function createTask(
     const reminder = await addReminder(newTask.id, spec, database);
     if (reminder.notificationId === null) {
       remindersUnscheduled += 1;
+    }
+  }
+
+  // Phase 10.6: every task gets its own due-time notification
+  // ("¡Es para ahora!"), independent of whatever reminders (if any) were
+  // just created above — a task with zero reminders still benefits from
+  // being told when it's actually due.
+  if (input.dueDateTime.getTime() > Date.now()) {
+    const permission = await requestNotificationPermission();
+    if (permission.granted) {
+      const subjectRows = await database
+        .select({ name: subjects.name })
+        .from(subjects)
+        .where(eq(subjects.id, input.subjectId))
+        .limit(1);
+      await scheduleDueNotification(newTask.id, input.dueDateTime, {
+        taskTitle: input.title,
+        subjectName: subjectRows[0]?.name ?? "",
+      });
     }
   }
 
