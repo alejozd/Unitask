@@ -1,6 +1,6 @@
 import * as Notifications from "expo-notifications";
 
-const REMINDER_CHANNEL_ID = "reminders";
+const REMINDER_CHANNEL_ID = "reminders-v2";
 
 // Foreground display behavior — without this, a notification scheduled
 // while the app is open and in the foreground is silently swallowed
@@ -25,7 +25,10 @@ Notifications.setNotificationHandler({
 export async function ensureReminderChannel(): Promise<void> {
   await Notifications.setNotificationChannelAsync(REMINDER_CHANNEL_ID, {
     name: "Recordatorios de tareas",
-    importance: Notifications.AndroidImportance.DEFAULT,
+    importance: Notifications.AndroidImportance.HIGH,
+    // Heads-up display, no sound for now — sound design is a separate,
+    // still-open decision (Phase 10.5 fast-follow scope).
+    sound: null,
   });
 }
 
