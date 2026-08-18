@@ -84,8 +84,14 @@ export default function ConfiguracionScreen() {
     if (result.canceled) return;
 
     const asset = result.assets[0];
-    const jsonText = await new File(asset.uri).text();
-    const parsed = parseBackupFile(jsonText);
+    let parsed: ReturnType<typeof parseBackupFile>;
+    try {
+      const jsonText = await new File(asset.uri).text();
+      parsed = parseBackupFile(jsonText);
+    } catch {
+      Alert.alert("Archivo inválido", "No se pudo leer el archivo seleccionado.");
+      return;
+    }
     if (!parsed.valid) {
       Alert.alert("Archivo inválido", reasonMessage(parsed.reason));
       return;

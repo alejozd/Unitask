@@ -219,6 +219,7 @@ export default function HomeScreen() {
           style={styles.settingsButton}
           onPress={() => router.push("/configuracion")}
           accessibilityLabel="Configuración"
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
           <Ionicons name="settings-outline" size={24} color={colors.textMuted} />
         </TouchableOpacity>
