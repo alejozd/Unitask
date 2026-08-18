@@ -11,6 +11,7 @@ export default function OnboardingPerfilScreen() {
   const [saving, setSaving] = useState(false);
 
   async function handleContinue() {
+    if (saving) return;
     setSaving(true);
     try {
       await saveProfile({

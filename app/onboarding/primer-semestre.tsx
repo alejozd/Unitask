@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { router } from "expo-router";
 
 import { createSemester } from "@/db/repositories/semester";
 import { colors } from "@/theme";
@@ -25,13 +24,15 @@ export default function PrimerSemestreScreen() {
     setSubmitting(true);
     try {
       await createSemester(trimmedLabel);
-      // Phase 10.5: navigate forward to the nickname step ourselves — this
-      // is safe now (unlike navigating straight to `/(tabs)` used to be,
-      // see the old comment this replaced) because `app/_layout.tsx`'s
-      // effect has an explicit `onProfileStep` exception that leaves
-      // `/onboarding/perfil` alone regardless of whether its own live
-      // query has caught up with this write yet.
-      router.replace("/onboarding/perfil");
+      // Deliberately no navigation call here. `app/_layout.tsx`'s effect
+      // owns the redirect to `/onboarding/perfil` (Phase 10.5) — and, from
+      // there, on to `/(tabs)` — firing once its own live query of active
+      // semesters actually reflects this write. Navigating from here
+      // instead races that same query: this was tried, reintroduced the
+      // exact bounce-back class of bug described below, and was reverted
+      // (verified in review). Stay in the `submitting` state (spinner
+      // visible) until the root layout unmounts this screen for us; only
+      // clear it below if the write itself failed.
     } catch {
       setSubmitting(false);
       Alert.alert("Error", "No se pudo crear el semestre. Inténtalo de nuevo.");

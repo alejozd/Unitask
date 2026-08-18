@@ -41,15 +41,14 @@ export default function RootLayout() {
 
   const migrationsReady = success && updatedAt !== undefined;
   const hasActiveSemester = migrationsReady && (activeSemesters?.length ?? 0) > 0;
-  const onOnboardingScreen = pathname.startsWith("/onboarding");
-  // `/onboarding/perfil` is reached (Phase 10.5) by an explicit navigation
-  // from primer-semestre.tsx AFTER the semester already exists — the
-  // moment hasActiveSemester flips true, this effect would otherwise
-  // force-redirect straight to /(tabs) and skip this screen entirely (same
-  // race class as the comment below describes; this is the layout-side
-  // exception it needs). The profile screen itself owns navigating to
-  // /(tabs) once the user finishes (or skips) it.
+  // Phase 10.5: onboarding is now two screens. Checked individually (not a
+  // single `pathname.startsWith("/onboarding")`) so the effect below can
+  // route from the first screen to the second as its own state-driven
+  // transition, the same race-free way it already routes into onboarding
+  // and out to /(tabs) — see that effect's comment for why this matters.
+  const onPrimerSemestreScreen = pathname === "/onboarding/primer-semestre";
   const onProfileStep = pathname === "/onboarding/perfil";
+  const onOnboardingScreen = onPrimerSemestreScreen || onProfileStep;
 
   // Navigate imperatively, in an effect, instead of rendering a declarative
   // <Redirect> tied to `pathname`/`activeSemesters` changing together. The
@@ -77,21 +76,31 @@ export default function RootLayout() {
   // on-device. Making this effect the single source of truth for both
   // directions means the forward navigation only ever fires once
   // `hasActiveSemester` has actually flipped true, never before.
-  // Phase 10.5: `primer-semestre.tsx` now DOES navigate itself, but only to
-  // `/onboarding/perfil` (never straight to `/(tabs)`) — `onProfileStep`
-  // above stops this effect from yanking the user out of that screen the
-  // instant `hasActiveSemester` flips true. `perfil.tsx` is the one screen
-  // allowed to call `router.replace("/(tabs)")` directly, since by the time
-  // it does, `hasActiveSemester` is already guaranteed true (the semester
-  // write happened first, on the previous screen) — no race.
+  // Phase 10.5: adds a second onboarding step (a nickname prompt) after the
+  // semester is created, WITHOUT letting `primer-semestre.tsx` navigate
+  // itself there — that was tried first and reintroduced exactly the race
+  // described above (verified in review): an imperative navigation call
+  // right after `await createSemester(...)` can still lose to this effect
+  // reacting to the very same write, since `hasActiveSemester` flipping and
+  // `pathname` actually changing are two independently-scheduled updates.
+  // Instead this effect stays the single source of truth for every
+  // onboarding transition: when `hasActiveSemester` flips true WHILE this
+  // render's own `onPrimerSemestreScreen` is true, routing to
+  // `/onboarding/perfil` is provably race-free, because both sides of the
+  // condition are read from the same render pass that triggered the effect
+  // — there is no second, independently-timed signal to race against.
+  // `perfil.tsx` is the one screen allowed to call `router.replace("/(tabs)")`
+  // itself once the user finishes (or skips) it: by that point
+  // `hasActiveSemester` is already known true from having reached this
+  // screen in the first place, so there's nothing left to race.
   useEffect(() => {
     if (!migrationsReady) return;
     if (!hasActiveSemester && !onOnboardingScreen) {
       router.replace("/onboarding/primer-semestre");
-    } else if (hasActiveSemester && onOnboardingScreen && !onProfileStep) {
-      router.replace("/(tabs)");
+    } else if (hasActiveSemester && onPrimerSemestreScreen) {
+      router.replace("/onboarding/perfil");
     }
-  }, [migrationsReady, hasActiveSemester, onOnboardingScreen, onProfileStep]);
+  }, [migrationsReady, hasActiveSemester, onOnboardingScreen, onPrimerSemestreScreen]);
 
   if (error) {
     return (
