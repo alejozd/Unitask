@@ -14,6 +14,7 @@ import type { DashboardEntry } from "@/domain/dashboard";
 import { calculateTaskProgress } from "@/domain/task-progress";
 import { deriveTaskStatus } from "@/domain/task-status";
 import { colors, priorityColors, subjectPalette } from "@/theme";
+import { KpiCard } from "@/components/KpiCard";
 
 export default function ProgresoScreen() {
   // Status (Pendiente/En progreso/Vencida) is derived from the current time
@@ -113,36 +114,40 @@ export default function ProgresoScreen() {
 
         <View style={styles.statGrid}>
           <View style={styles.statRow}>
-            <View style={styles.statCard}>
-              <View style={[styles.statIconCircle, { backgroundColor: colors.primaryTint }]}>
-                <Ionicons name="checkmark-circle-outline" size={18} color={priorityColors.Baja} />
-              </View>
-              <Text style={styles.statValue}>{summary.completadasCount}</Text>
-              <Text style={styles.statLabel}>Completadas</Text>
-            </View>
-            <View style={styles.statCard}>
-              <View style={[styles.statIconCircle, { backgroundColor: colors.primaryTint }]}>
-                <Ionicons name="sync-outline" size={18} color={priorityColors.Media} />
-              </View>
-              <Text style={styles.statValue}>{summary.enProgresoCount}</Text>
-              <Text style={styles.statLabel}>En progreso</Text>
-            </View>
+            <KpiCard
+              icon="checkmark-circle-outline"
+              iconColor={priorityColors.Baja}
+              iconBackgroundColor={colors.primaryTint}
+              value={summary.completadasCount}
+              label="Completadas"
+              containerStyle={styles.statCardHalf}
+            />
+            <KpiCard
+              icon="sync-outline"
+              iconColor={priorityColors.Media}
+              iconBackgroundColor={colors.primaryTint}
+              value={summary.enProgresoCount}
+              label="En progreso"
+              containerStyle={styles.statCardHalf}
+            />
           </View>
           <View style={styles.statRow}>
-            <View style={styles.statCard}>
-              <View style={[styles.statIconCircle, { backgroundColor: colors.primaryTint }]}>
-                <Ionicons name="list-outline" size={18} color={colors.primary} />
-              </View>
-              <Text style={styles.statValue}>{summary.pendientesCount}</Text>
-              <Text style={styles.statLabel}>Pendientes</Text>
-            </View>
-            <View style={styles.statCard}>
-              <View style={[styles.statIconCircle, { backgroundColor: colors.dangerTint }]}>
-                <Ionicons name="alert-circle-outline" size={18} color={colors.danger} />
-              </View>
-              <Text style={styles.statValue}>{summary.vencidasCount}</Text>
-              <Text style={styles.statLabel}>Vencidas</Text>
-            </View>
+            <KpiCard
+              icon="list-outline"
+              iconColor={colors.primary}
+              iconBackgroundColor={colors.primaryTint}
+              value={summary.pendientesCount}
+              label="Pendientes"
+              containerStyle={styles.statCardHalf}
+            />
+            <KpiCard
+              icon="alert-circle-outline"
+              iconColor={colors.danger}
+              iconBackgroundColor={colors.dangerTint}
+              value={summary.vencidasCount}
+              label="Vencidas"
+              containerStyle={styles.statCardHalf}
+            />
           </View>
         </View>
 
@@ -223,24 +228,7 @@ const styles = StyleSheet.create({
 
   statGrid: { gap: 10 },
   statRow: { flexDirection: "row", gap: 10 },
-  statCard: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 12,
-    gap: 6,
-  },
-  statIconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  statValue: { fontSize: 22, fontWeight: "700", color: colors.text },
-  statLabel: { fontSize: 12, color: colors.textMuted },
+  statCardHalf: { flex: 1 },
 
   section: { gap: 10 },
   sectionTitle: { fontSize: 16, fontWeight: "600", color: colors.text },
