@@ -42,6 +42,14 @@ export default function RootLayout() {
   const migrationsReady = success && updatedAt !== undefined;
   const hasActiveSemester = migrationsReady && (activeSemesters?.length ?? 0) > 0;
   const onOnboardingScreen = pathname.startsWith("/onboarding");
+  // `/onboarding/perfil` is reached (Phase 10.5) by an explicit navigation
+  // from primer-semestre.tsx AFTER the semester already exists — the
+  // moment hasActiveSemester flips true, this effect would otherwise
+  // force-redirect straight to /(tabs) and skip this screen entirely (same
+  // race class as the comment below describes; this is the layout-side
+  // exception it needs). The profile screen itself owns navigating to
+  // /(tabs) once the user finishes (or skips) it.
+  const onProfileStep = pathname === "/onboarding/perfil";
 
   // Navigate imperatively, in an effect, instead of rendering a declarative
   // <Redirect> tied to `pathname`/`activeSemesters` changing together. The
@@ -69,14 +77,21 @@ export default function RootLayout() {
   // on-device. Making this effect the single source of truth for both
   // directions means the forward navigation only ever fires once
   // `hasActiveSemester` has actually flipped true, never before.
+  // Phase 10.5: `primer-semestre.tsx` now DOES navigate itself, but only to
+  // `/onboarding/perfil` (never straight to `/(tabs)`) — `onProfileStep`
+  // above stops this effect from yanking the user out of that screen the
+  // instant `hasActiveSemester` flips true. `perfil.tsx` is the one screen
+  // allowed to call `router.replace("/(tabs)")` directly, since by the time
+  // it does, `hasActiveSemester` is already guaranteed true (the semester
+  // write happened first, on the previous screen) — no race.
   useEffect(() => {
     if (!migrationsReady) return;
     if (!hasActiveSemester && !onOnboardingScreen) {
       router.replace("/onboarding/primer-semestre");
-    } else if (hasActiveSemester && onOnboardingScreen) {
+    } else if (hasActiveSemester && onOnboardingScreen && !onProfileStep) {
       router.replace("/(tabs)");
     }
-  }, [migrationsReady, hasActiveSemester, onOnboardingScreen]);
+  }, [migrationsReady, hasActiveSemester, onOnboardingScreen, onProfileStep]);
 
   if (error) {
     return (
