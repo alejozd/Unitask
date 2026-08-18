@@ -71,6 +71,7 @@ export default function SemestresScreen() {
         data={semesterList ?? []}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
+        ListEmptyComponent={<Text style={styles.emptyText}>No hay semestres registrados.</Text>}
         renderItem={({ item }) => (
           <View style={styles.card}>
             <View style={styles.cardBody}>
@@ -113,6 +114,7 @@ const styles = StyleSheet.create({
   backButtonText: { color: colors.primary, fontSize: 15, fontWeight: "600" },
   title: { fontSize: 22, fontWeight: "700", color: colors.text },
   list: { gap: 12, paddingVertical: 8 },
+  emptyText: { color: colors.textMuted, textAlign: "center", paddingVertical: 24 },
   card: {
     flexDirection: "row",
     alignItems: "center",
