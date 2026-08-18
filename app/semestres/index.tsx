@@ -149,5 +149,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     justifyContent: "center",
   },
-  createButtonText: { color: "#FFFFFF", fontWeight: "600" },
+  createButtonText: { color: colors.onColor, fontWeight: "600" },
 });

@@ -486,7 +486,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   completeButtonDisabled: { opacity: 0.5 },
-  completeButtonText: { color: "#FFFFFF", fontWeight: "600" },
+  completeButtonText: { color: colors.onColor, fontWeight: "600" },
   sectionTitle: { fontSize: 15, fontWeight: "700", color: colors.text, marginTop: 20 },
   subtaskRow: {
     flexDirection: "row",
@@ -548,5 +548,5 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: "center",
   },
-  deleteButtonText: { color: "#FFFFFF", fontWeight: "600" },
+  deleteButtonText: { color: colors.onColor, fontWeight: "600" },
 });

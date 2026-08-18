@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
   dayCellDimmed: { opacity: 0.4 },
   dayNumber: { fontSize: 14, color: colors.text },
   dayNumberDimmed: { color: colors.textMuted },
-  dayNumberSelected: { color: "#FFFFFF", fontWeight: "700" },
+  dayNumberSelected: { color: colors.onColor, fontWeight: "700" },
   dotsRow: { flexDirection: "row", gap: 2 },
   dot: { width: 5, height: 5, borderRadius: 2.5 },
 });

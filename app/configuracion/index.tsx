@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   saveButtonDisabled: { opacity: 0.5 },
-  saveButtonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "600" },
+  saveButtonText: { color: colors.onColor, fontSize: 16, fontWeight: "600" },
   dataSection: {
     gap: 8,
     marginTop: 24,

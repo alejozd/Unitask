@@ -227,7 +227,7 @@ export default function HomeScreen() {
               <KpiCard
                 icon="alert-circle-outline"
                 iconColor={colors.danger}
-                iconBackgroundColor={summary.hoyCount > 0 ? "#FFFFFF" : colors.dangerTint}
+                iconBackgroundColor={summary.hoyCount > 0 ? colors.onColor : colors.dangerTint}
                 value={summary.hoyCount}
                 label="HOY"
                 valueColor={summary.hoyCount > 0 ? colors.danger : undefined}
@@ -321,7 +321,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  subjectChipText: { fontSize: 11, fontWeight: "600", color: "#FFFFFF" },
+  subjectChipText: { fontSize: 11, fontWeight: "600", color: colors.onColor },
   urgentTitle: { flex: 1, fontSize: 14, fontWeight: "600", color: colors.text, textAlign: "right" },
   dueRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   dueText: { fontSize: 12, color: colors.textMuted },

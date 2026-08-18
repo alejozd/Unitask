@@ -108,7 +108,7 @@ export function SubjectForm({ initialValues, submitLabel, onSubmit }: SubjectFor
         disabled={isSubmitting}
       >
         {isSubmitting ? (
-          <ActivityIndicator color="#FFFFFF" />
+          <ActivityIndicator color={colors.onColor} />
         ) : (
           <Text style={styles.submitButtonText}>{submitLabel}</Text>
         )}
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   submitButtonText: {
-    color: "#FFFFFF",
+    color: colors.onColor,
     fontSize: 16,
     fontWeight: "600",
   },

@@ -10,6 +10,7 @@ import {
 } from "react-native";
 
 import { createSemester } from "@/db/repositories/semester";
+import { colors } from "@/theme";
 
 export default function PrimerSemestreScreen() {
   const [label, setLabel] = useState("");
@@ -57,7 +58,7 @@ export default function PrimerSemestreScreen() {
         disabled={!canSubmit}
       >
         {submitting ? (
-          <ActivityIndicator color="#FFFFFF" />
+          <ActivityIndicator color={colors.onColor} />
         ) : (
           <Text style={styles.buttonText}>Crear semestre</Text>
         )}
@@ -79,19 +80,19 @@ const styles = StyleSheet.create({
   },
   body: {
     fontSize: 15,
-    color: "#64748B",
+    color: colors.textMuted,
     lineHeight: 22,
   },
   input: {
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: colors.border,
     borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
   },
   button: {
-    backgroundColor: "#6366F1",
+    backgroundColor: colors.primary,
     borderRadius: 8,
     paddingVertical: 14,
     alignItems: "center",
@@ -100,7 +101,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   buttonText: {
-    color: "#FFFFFF",
+    color: colors.onColor,
     fontSize: 16,
     fontWeight: "600",
   },

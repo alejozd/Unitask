@@ -10,6 +10,12 @@ export const colors = {
   primaryTint: "rgba(99, 102, 241, 0.12)",
   danger: "#EF4444",
   dangerTint: "rgba(239, 68, 68, 0.12)",
+  // Text/icon color for content that sits ON a saturated background
+  // (primary buttons, FABs, selected states) — deliberately kept distinct
+  // from `surface` even though both are currently "#FFFFFF": a future
+  // dark theme could change `surface` without needing on-primary text to
+  // follow (Phase 10's theming-cleanup pass).
+  onColor: "#FFFFFF",
 } as const;
 
 /**

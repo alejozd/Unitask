@@ -8,6 +8,7 @@ import { db } from "@/db/client";
 import migrations from "@/db/migrations/migrations";
 import { semesters } from "@/db/schema/semester";
 import { eq } from "drizzle-orm";
+import { colors } from "@/theme";
 
 export default function RootLayout() {
   const { success, error } = useMigrations(db, migrations);
@@ -111,7 +112,7 @@ const styles = StyleSheet.create({
   },
   errorDetail: {
     fontSize: 13,
-    color: "#64748B",
+    color: colors.textMuted,
     textAlign: "center",
   },
 });

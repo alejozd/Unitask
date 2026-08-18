@@ -104,10 +104,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   checkboxFilled: { backgroundColor: colors.primary },
-  // "#FFFFFF" literal (not a token) — matches this codebase's established,
-  // already-backlogged white-on-solid-color pattern (Phase 10 will
-  // tokenize this alongside every other occurrence at once).
-  checkmark: { color: "#FFFFFF", fontSize: 12, fontWeight: "700" },
+  checkmark: { color: colors.onColor, fontSize: 12, fontWeight: "700" },
   title: { flex: 1, fontSize: 14, fontWeight: "600", color: colors.text },
   titleCompleted: { textDecorationLine: "line-through" },
   tagsRow: { flexDirection: "row", flexWrap: "wrap", gap: 10 },

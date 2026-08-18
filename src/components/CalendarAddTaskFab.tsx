@@ -39,5 +39,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  fabText: { color: "#FFFFFF", fontSize: 28, lineHeight: 30 },
+  fabText: { color: colors.onColor, fontSize: 28, lineHeight: 30 },
 });

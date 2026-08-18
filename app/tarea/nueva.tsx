@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 24,
   },
-  emptyButtonText: { color: "#FFFFFF", fontWeight: "600" },
+  emptyButtonText: { color: colors.onColor, fontWeight: "600" },
   subtasksSection: { paddingHorizontal: 20, paddingBottom: 24, gap: 8 },
   subtasksTitle: { fontSize: 13, fontWeight: "600", color: colors.textMuted },
   subtaskRow: {

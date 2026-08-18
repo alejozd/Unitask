@@ -215,7 +215,7 @@ export function TaskForm({
         disabled={isSubmitting}
       >
         {isSubmitting ? (
-          <ActivityIndicator color="#FFFFFF" />
+          <ActivityIndicator color={colors.onColor} />
         ) : (
           <Text style={styles.submitButtonText}>{submitLabel}</Text>
         )}
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   priorityChipText: { fontSize: 14, fontWeight: "600" },
-  priorityChipTextSelected: { color: "#FFFFFF" },
+  priorityChipTextSelected: { color: colors.onColor },
   submitButton: {
     backgroundColor: colors.primary,
     borderRadius: 8,
@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   submitButtonText: {
-    color: "#FFFFFF",
+    color: colors.onColor,
     fontSize: 16,
     fontWeight: "600",
   },

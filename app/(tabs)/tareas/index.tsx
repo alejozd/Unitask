@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
   },
   chipSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { fontSize: 13, color: colors.textMuted },
-  chipTextSelected: { color: "#FFFFFF", fontWeight: "600" },
+  chipTextSelected: { color: colors.onColor, fontWeight: "600" },
   empty: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
   emptyText: { color: colors.textMuted, textAlign: "center" },
   list: { paddingHorizontal: 20, paddingBottom: 96, gap: 12 },
@@ -284,5 +284,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  fabText: { color: "#FFFFFF", fontSize: 28, lineHeight: 30 },
+  fabText: { color: colors.onColor, fontSize: 28, lineHeight: 30 },
 });

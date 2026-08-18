@@ -120,5 +120,5 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: "center",
   },
-  deleteButtonText: { color: "#FFFFFF", fontWeight: "600" },
+  deleteButtonText: { color: colors.onColor, fontWeight: "600" },
 });
