@@ -43,7 +43,7 @@ import { attachments } from "@/db/schema/attachment";
 import { calculateTaskProgress } from "@/domain/task-progress";
 import { deriveTaskStatus } from "@/domain/task-status";
 import { describeUnscheduledReason, type ReminderSpec } from "@/domain/reminder-scheduling";
-import { openAttachment, type PickedDocument } from "@/lib/files";
+import { AttachmentFileNotFoundError, openAttachment, type PickedDocument } from "@/lib/files";
 import { colors, priorityColors, subjectPalette } from "@/theme";
 
 function handleActionError(error: unknown, fallbackMessage: string) {
@@ -227,8 +227,15 @@ export default function DetalleDeTareaScreen() {
   async function handleOpenAttachment(attachment: AttachmentListItem) {
     try {
       await openAttachment(attachment.storedPath, attachment.mimeType);
-    } catch {
-      Alert.alert("Error", "No se pudo abrir el archivo.");
+    } catch (error) {
+      if (error instanceof AttachmentFileNotFoundError) {
+        Alert.alert(
+          "Archivo no disponible",
+          "Este adjunto no tiene un archivo en este dispositivo — probablemente viene de una copia de seguridad importada, que no incluye los archivos adjuntos.",
+        );
+      } else {
+        Alert.alert("Error", "No se pudo abrir el archivo.");
+      }
     }
   }
 

@@ -29,6 +29,21 @@ export class CameraPermissionDeniedError extends Error {
 }
 
 /**
+ * Thrown by `openAttachment` when `storedPath` has no backing file on this
+ * device — the expected state for every attachment row restored via
+ * Phase 9's import (attachment FILES are never embedded in the export,
+ * only their metadata/row). Distinct from every other `openAttachment`
+ * failure so the caller can show a specific "not available" message
+ * instead of a generic error.
+ */
+export class AttachmentFileNotFoundError extends Error {
+  constructor() {
+    super("Attachment file not found");
+    this.name = "AttachmentFileNotFoundError";
+  }
+}
+
+/**
  * Opens the system document picker. Returns null if the user cancelled.
  * `mimeType` can legitimately come back null from the OS picker — callers
  * must not assume it's always present (see this plan's Global Constraints).
@@ -156,8 +171,12 @@ export function deleteAttachmentDirectoryForTask(taskId: string): void {
  * reason. UniTask never renders any file type itself either way.
  */
 export async function openAttachment(storedPath: string, mimeType: string): Promise<void> {
+  const file = new File(storedPath);
+  if (!file.exists) {
+    throw new AttachmentFileNotFoundError();
+  }
+
   try {
-    const file = new File(storedPath);
     await IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
       data: file.contentUri,
       type: mimeType,

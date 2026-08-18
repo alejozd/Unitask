@@ -1,6 +1,10 @@
 import { Directory, File, Paths } from "expo-file-system";
 
-import { copyIntoAttachmentStorage } from "@/lib/files";
+import {
+  AttachmentFileNotFoundError,
+  copyIntoAttachmentStorage,
+  openAttachment,
+} from "@/lib/files";
 
 // `src/lib/files/index.ts` itself is otherwise untested per this project's
 // convention (thin native wrapper, verified via the repository layer +
@@ -50,5 +54,15 @@ describe("copyIntoAttachmentStorage", () => {
 
     const taskDir = new Directory(Paths.document, `attachments/${taskId}`);
     expect(storedPath).toBe(`${taskDir.uri}/attach-2-notas.pdf`);
+  });
+});
+
+describe("openAttachment", () => {
+  it("throws AttachmentFileNotFoundError for a storedPath with no backing file (e.g. an attachment row restored via import)", async () => {
+    const missingPath = new File(Paths.document, "attachments/task-x/never-written.pdf").uri;
+
+    await expect(openAttachment(missingPath, "application/pdf")).rejects.toThrow(
+      AttachmentFileNotFoundError,
+    );
   });
 });
