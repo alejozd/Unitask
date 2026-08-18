@@ -219,5 +219,5 @@ Not part of Phases 0–10 above; noted here so they aren't lost, but they are ou
 - **Bundling attachment file bytes into JSON export** (v1 exports metadata only, `09-file-management.md`).
 - **Notification digest / global notification toggle in Settings** (explicitly dropped for v1, `01-product.md`).
 - **On-time completion rate statistic** on the Progress screen, powered by the `completedLate` flag already tracked since Phase 1 but not surfaced in MVP UI.
-- **Mock `expo-notifications` in Jest** to silence the Expo Go console warning that surfaces during test runs (Phase 5 fast-follows close-out, 2026-08-13) — cosmetic, no effect on test correctness.
+- ~~**Mock `expo-notifications` in Jest**~~ — done 2026-08-17: `__mocks__/expo-notifications.ts` stubs the package (same auto-load convention as `expo-sqlite`/`expo-crypto`), silencing the Expo Go SDK 53 push-notification console warning. 189/189 tests unaffected.
 - **Friendly display name for camera-attached photos** (Phase 5 FF3, 2026-08-13) — `takePhoto()` currently names files `foto-{Date.now()}.jpg`; a human-readable label like "Foto 13 ago, 12:40" would read better in `AttachmentList` than a raw timestamp/UUID.
