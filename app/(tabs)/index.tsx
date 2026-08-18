@@ -20,6 +20,8 @@ import {
 import { calculateTaskProgress } from "@/domain/task-progress";
 import { deriveTaskStatus } from "@/domain/task-status";
 import { colors, priorityColors, subjectPalette } from "@/theme";
+import { KpiCard } from "@/components/KpiCard";
+import { TaskRow } from "@/components/TaskRow";
 
 export default function HomeScreen() {
   // Time-derived counts (Pendientes/Hoy/Tareas urgentes/Vencida labels) go
@@ -169,42 +171,22 @@ export default function HomeScreen() {
 
   function renderProximaEntregaRow(entry: DashboardEntry) {
     const enriched = enrichedByTaskId.get(entry.task.id);
+    const dueLabel = formatDueLabel(entry);
     return (
-      <TouchableOpacity
+      <TaskRow
         key={entry.task.id}
-        style={styles.proximaRow}
+        entry={{
+          taskId: entry.task.id,
+          title: entry.task.title,
+          completed: entry.task.completed,
+          subjectName: enriched?.subject?.name,
+          subjectColor: enriched?.subject?.color,
+          priority: entry.task.priority,
+          trailingLabel: dueLabel.text,
+          trailingIsUrgent: dueLabel.isUrgent,
+        }}
         onPress={() => router.push(`/tarea/${entry.task.id}`)}
-      >
-        <View
-          style={[
-            styles.proximaIcon,
-            {
-              backgroundColor: enriched?.subject
-                ? subjectPalette[enriched.subject.color]
-                : colors.primary,
-            },
-          ]}
-        >
-          <Ionicons name="document-text-outline" size={18} color="#FFFFFF" />
-        </View>
-        <View style={styles.proximaBody}>
-          <Text style={styles.proximaTitle} numberOfLines={2}>
-            {entry.task.title}
-          </Text>
-          {enriched?.subject && <Text style={styles.proximaSubject}>{enriched.subject.name}</Text>}
-        </View>
-        <View style={styles.proximaDateBlock}>
-          <Text style={styles.proximaDate}>
-            {entry.task.dueDateTime.toLocaleDateString("es", { weekday: "long", day: "numeric" })}
-          </Text>
-          <Text style={styles.proximaTime}>
-            {entry.task.dueDateTime.toLocaleTimeString("es", {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </Text>
-        </View>
-      </TouchableOpacity>
+      />
     );
   }
 
@@ -233,52 +215,34 @@ export default function HomeScreen() {
         <>
           <View style={styles.kpiGrid}>
             <View style={styles.kpiRow}>
-              <View style={styles.kpiCard}>
-                <View style={styles.kpiTopRow}>
-                  <View style={[styles.kpiIconCircle, { backgroundColor: colors.primaryTint }]}>
-                    <Ionicons name="list-outline" size={16} color={colors.primary} />
-                  </View>
-                  <Text style={styles.kpiValue}>{summary.pendientesCount}</Text>
-                </View>
-                <Text style={styles.kpiLabel} numberOfLines={2}>
-                  PENDIENTES
-                </Text>
-              </View>
+              <KpiCard
+                icon="list-outline"
+                iconColor={colors.primary}
+                iconBackgroundColor={colors.primaryTint}
+                value={summary.pendientesCount}
+                label="PENDIENTES"
+                containerStyle={styles.kpiCardHalf}
+              />
 
-              <View style={[styles.kpiCard, summary.hoyCount > 0 && styles.kpiCardDanger]}>
-                <View style={styles.kpiTopRow}>
-                  <View
-                    style={[
-                      styles.kpiIconCircle,
-                      { backgroundColor: summary.hoyCount > 0 ? "#FFFFFF" : colors.dangerTint },
-                    ]}
-                  >
-                    <Ionicons name="alert-circle-outline" size={16} color={colors.danger} />
-                  </View>
-                  <Text style={[styles.kpiValue, summary.hoyCount > 0 && styles.kpiValueOnDanger]}>
-                    {summary.hoyCount}
-                  </Text>
-                </View>
-                <Text
-                  style={[styles.kpiLabel, summary.hoyCount > 0 && styles.kpiLabelOnDanger]}
-                  numberOfLines={2}
-                >
-                  HOY
-                </Text>
-              </View>
+              <KpiCard
+                icon="alert-circle-outline"
+                iconColor={colors.danger}
+                iconBackgroundColor={summary.hoyCount > 0 ? "#FFFFFF" : colors.dangerTint}
+                value={summary.hoyCount}
+                label="HOY"
+                valueColor={summary.hoyCount > 0 ? colors.danger : undefined}
+                labelColor={summary.hoyCount > 0 ? colors.danger : undefined}
+                containerStyle={[styles.kpiCardHalf, summary.hoyCount > 0 && styles.kpiCardDanger]}
+              />
             </View>
 
-            <View style={styles.kpiCardFull}>
-              <View style={styles.kpiTopRow}>
-                <View style={[styles.kpiIconCircle, { backgroundColor: colors.primaryTint }]}>
-                  <Ionicons name="checkmark-circle-outline" size={16} color={priorityColors.Baja} />
-                </View>
-                <Text style={styles.kpiValue}>{summary.completadasUltimos7DiasCount}</Text>
-              </View>
-              <Text style={styles.kpiLabel} numberOfLines={2}>
-                COMPLETADAS ESTA SEMANA
-              </Text>
-            </View>
+            <KpiCard
+              icon="checkmark-circle-outline"
+              iconColor={priorityColors.Baja}
+              iconBackgroundColor={colors.primaryTint}
+              value={summary.completadasUltimos7DiasCount}
+              label="COMPLETADAS ESTA SEMANA"
+            />
           </View>
 
           <View style={styles.section}>
@@ -328,36 +292,8 @@ const styles = StyleSheet.create({
 
   kpiGrid: { gap: 10 },
   kpiRow: { flexDirection: "row", gap: 10 },
-  kpiCard: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 12,
-    gap: 6,
-  },
-  kpiCardFull: {
-    backgroundColor: colors.surface,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 12,
-    gap: 6,
-  },
+  kpiCardHalf: { flex: 1 },
   kpiCardDanger: { backgroundColor: colors.dangerTint, borderColor: colors.danger },
-  kpiTopRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  kpiIconCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  kpiValue: { fontSize: 22, fontWeight: "700", color: colors.text },
-  kpiValueOnDanger: { color: colors.danger },
-  kpiLabel: { fontSize: 10, fontWeight: "600", color: colors.textMuted, letterSpacing: 0.3 },
-  kpiLabelOnDanger: { color: colors.danger },
 
   section: { gap: 10 },
   sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
@@ -405,27 +341,4 @@ const styles = StyleSheet.create({
   progressLabel: { fontSize: 11, color: colors.textMuted },
 
   verticalList: { gap: 12 },
-  proximaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 14,
-  },
-  proximaIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  proximaBody: { flex: 1, gap: 2 },
-  proximaTitle: { fontSize: 14, fontWeight: "600", color: colors.text },
-  proximaSubject: { fontSize: 12, color: colors.textMuted },
-  proximaDateBlock: { alignItems: "flex-end" },
-  proximaDate: { fontSize: 12, color: colors.text, textTransform: "capitalize" },
-  proximaTime: { fontSize: 12, color: colors.textMuted },
 });
