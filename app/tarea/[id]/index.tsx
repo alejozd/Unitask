@@ -132,15 +132,24 @@ export default function DetalleDeTareaScreen() {
     }
   }
 
-  async function handleRemoveSubtask(subtaskId: string) {
-    setBusy(true);
-    try {
-      await deleteSubtask(subtaskId);
-    } catch (error) {
-      handleActionError(error, "No se pudo eliminar la subtarea.");
-    } finally {
-      setBusy(false);
-    }
+  function handleRemoveSubtask(subtaskId: string) {
+    Alert.alert("Eliminar subtarea", "Esta acción eliminará la subtarea.", [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Eliminar",
+        style: "destructive",
+        onPress: async () => {
+          setBusy(true);
+          try {
+            await deleteSubtask(subtaskId);
+          } catch (error) {
+            handleActionError(error, "No se pudo eliminar la subtarea.");
+          } finally {
+            setBusy(false);
+          }
+        },
+      },
+    ]);
   }
 
   async function handleMoveSubtask(subtaskId: string, direction: "up" | "down") {
