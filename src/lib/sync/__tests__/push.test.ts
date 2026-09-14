@@ -25,7 +25,9 @@ function freshTestDb() {
 }
 
 async function seedTask(db: ReturnType<typeof freshTestDb>, taskId: string) {
-  await db.insert(semesters).values({ id: `${taskId}-sem`, label: "2026-1", status: "active", createdAt: new Date() });
+  await db
+    .insert(semesters)
+    .values({ id: `${taskId}-sem`, label: "2026-1", status: "active", createdAt: new Date() });
   await db.insert(subjects).values({
     id: `${taskId}-subj`,
     name: "Física",
@@ -65,7 +67,9 @@ describe("pushChanges", () => {
 
   it("sends a pending upsert with the current row as payload, then clears it on accept", async () => {
     const db = freshTestDb();
-    await db.insert(semesters).values({ id: "sem-1", label: "2026-1", status: "active", createdAt: new Date() });
+    await db
+      .insert(semesters)
+      .values({ id: "sem-1", label: "2026-1", status: "active", createdAt: new Date() });
     await enqueueChange("semesters", "sem-1", "upsert", db);
 
     (authenticatedFetch as jest.Mock).mockResolvedValueOnce({
@@ -79,12 +83,18 @@ describe("pushChanges", () => {
 
     const [, init] = (authenticatedFetch as jest.Mock).mock.calls[0];
     const body = JSON.parse(init.body);
-    expect(body.operations[0]).toMatchObject({ table: "semesters", entityId: "sem-1", operation: "upsert" });
+    expect(body.operations[0]).toMatchObject({
+      table: "semesters",
+      entityId: "sem-1",
+      operation: "upsert",
+    });
   });
 
   it("clears a rejected entry too (the server's newer version wins, a later pull corrects it)", async () => {
     const db = freshTestDb();
-    await db.insert(semesters).values({ id: "sem-2", label: "stale", status: "active", createdAt: new Date() });
+    await db
+      .insert(semesters)
+      .values({ id: "sem-2", label: "stale", status: "active", createdAt: new Date() });
     await enqueueChange("semesters", "sem-2", "upsert", db);
 
     (authenticatedFetch as jest.Mock).mockResolvedValueOnce({
@@ -109,7 +119,12 @@ describe("pushChanges", () => {
     await pushChanges(db);
     const [, init] = (authenticatedFetch as jest.Mock).mock.calls[0];
     const body = JSON.parse(init.body);
-    expect(body.operations[0]).toMatchObject({ table: "semesters", entityId: "sem-3", operation: "delete", payload: null });
+    expect(body.operations[0]).toMatchObject({
+      table: "semesters",
+      entityId: "sem-3",
+      operation: "delete",
+      payload: null,
+    });
   });
 
   it("drops a pending upsert whose row no longer exists (enqueued then deleted before push)", async () => {
@@ -124,7 +139,9 @@ describe("pushChanges", () => {
 
   it("leaves the outbox untouched when the request itself fails", async () => {
     const db = freshTestDb();
-    await db.insert(semesters).values({ id: "sem-4", label: "x", status: "active", createdAt: new Date() });
+    await db
+      .insert(semesters)
+      .values({ id: "sem-4", label: "x", status: "active", createdAt: new Date() });
     await enqueueChange("semesters", "sem-4", "upsert", db);
 
     (authenticatedFetch as jest.Mock).mockRejectedValueOnce(new Error("network down"));
@@ -152,7 +169,10 @@ describe("uploadPendingAttachmentFiles (via pushChanges)", () => {
     await enqueueChange("attachments", "att-1", "upsert", db);
 
     (authenticatedFetch as jest.Mock)
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ accepted: ["attachments:att-1"], rejected: [] }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ accepted: ["attachments:att-1"], rejected: [] }),
+      })
       .mockResolvedValueOnce({ ok: true, json: async () => ({ ok: true }) });
 
     await pushChanges(db);
@@ -209,8 +229,15 @@ describe("uploadPendingAttachmentFiles (via pushChanges)", () => {
     await enqueueChange("attachments", "att-3", "upsert", db);
 
     (authenticatedFetch as jest.Mock)
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ accepted: ["attachments:att-3"], rejected: [] }) })
-      .mockResolvedValueOnce({ ok: false, status: 413, json: async () => ({ error: "too large" }) });
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ accepted: ["attachments:att-3"], rejected: [] }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 413,
+        json: async () => ({ error: "too large" }),
+      });
 
     await pushChanges(db); // uploadPendingAttachmentFiles must not throw and fail the whole push over one file
 

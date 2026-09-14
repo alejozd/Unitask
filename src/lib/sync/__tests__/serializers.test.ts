@@ -20,7 +20,9 @@ function freshTestDb() {
 describe("buildPayload", () => {
   it("builds a semesters payload with all fields", async () => {
     const db = freshTestDb();
-    await db.insert(semesters).values({ id: "sem-1", label: "2026-1", status: "active", createdAt: new Date(1000) });
+    await db
+      .insert(semesters)
+      .values({ id: "sem-1", label: "2026-1", status: "active", createdAt: new Date(1000) });
 
     const result = await buildPayload("semesters", "sem-1", db);
     expect(result?.payload).toMatchObject({ id: "sem-1", label: "2026-1", status: "active" });
@@ -115,7 +117,9 @@ describe("applyUpsert / applyDelete", () => {
 
   it("applyUpsert on tasks parses date-string fields into real Date columns", async () => {
     const db = freshTestDb();
-    await db.insert(semesters).values({ id: "sem-5", label: "2026-1", status: "active", createdAt: new Date() });
+    await db
+      .insert(semesters)
+      .values({ id: "sem-5", label: "2026-1", status: "active", createdAt: new Date() });
     await db.insert(subjects).values({
       id: "subj-1",
       name: "Cálculo",

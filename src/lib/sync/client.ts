@@ -110,13 +110,19 @@ export async function authenticatedFetch(path: string, init: RequestInit = {}): 
     Authorization: `Bearer ${accessToken}`,
   });
 
-  let response = await fetch(`${SYNC_API_BASE_URL}${path}`, { ...init, headers: withAuth(init.headers) });
+  let response = await fetch(`${SYNC_API_BASE_URL}${path}`, {
+    ...init,
+    headers: withAuth(init.headers),
+  });
   if (response.status !== 401) return response;
 
   const refreshed = await refreshAccessToken();
   if (!refreshed) throw new SyncAuthError();
 
-  response = await fetch(`${SYNC_API_BASE_URL}${path}`, { ...init, headers: withAuth(init.headers) });
+  response = await fetch(`${SYNC_API_BASE_URL}${path}`, {
+    ...init,
+    headers: withAuth(init.headers),
+  });
   if (response.status === 401) throw new SyncAuthError();
   return response;
 }

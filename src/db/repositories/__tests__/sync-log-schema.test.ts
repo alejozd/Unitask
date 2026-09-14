@@ -39,7 +39,12 @@ describe("sync_log schema", () => {
     });
     await db
       .insert(syncLog)
-      .values({ entityTable: "tasks", entityId: "task-2", operation: "delete", updatedAt: new Date(2000) })
+      .values({
+        entityTable: "tasks",
+        entityId: "task-2",
+        operation: "delete",
+        updatedAt: new Date(2000),
+      })
       .onConflictDoUpdate({
         target: [syncLog.entityTable, syncLog.entityId],
         set: { operation: "delete", updatedAt: new Date(2000) },

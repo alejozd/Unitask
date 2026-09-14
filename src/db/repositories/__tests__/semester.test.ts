@@ -173,7 +173,11 @@ describe("semester repository — sync outbox", () => {
     const semester = await createSemester("2026-1", db);
     const pending = await getPendingChanges(db);
     expect(pending).toContainEqual(
-      expect.objectContaining({ entityTable: "semesters", entityId: semester.id, operation: "upsert" }),
+      expect.objectContaining({
+        entityTable: "semesters",
+        entityId: semester.id,
+        operation: "upsert",
+      }),
     );
   });
 
@@ -183,7 +187,11 @@ describe("semester repository — sync outbox", () => {
     await createSemester("2026-1", db);
     const pending = await getPendingChanges(db);
     expect(pending).toContainEqual(
-      expect.objectContaining({ entityTable: "semesters", entityId: first.id, operation: "upsert" }),
+      expect.objectContaining({
+        entityTable: "semesters",
+        entityId: first.id,
+        operation: "upsert",
+      }),
     );
   });
 
@@ -193,7 +201,11 @@ describe("semester repository — sync outbox", () => {
     await closeSemester(semester.id, db);
     const pending = await getPendingChanges(db);
     expect(pending).toContainEqual(
-      expect.objectContaining({ entityTable: "semesters", entityId: semester.id, operation: "upsert" }),
+      expect.objectContaining({
+        entityTable: "semesters",
+        entityId: semester.id,
+        operation: "upsert",
+      }),
     );
   });
 });

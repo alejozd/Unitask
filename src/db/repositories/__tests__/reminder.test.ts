@@ -403,7 +403,11 @@ describe("reminder repository", () => {
 
       const pending = await getPendingChanges(db);
       expect(pending).toContainEqual(
-        expect.objectContaining({ entityTable: "reminders", entityId: reminder.id, operation: "upsert" }),
+        expect.objectContaining({
+          entityTable: "reminders",
+          entityId: reminder.id,
+          operation: "upsert",
+        }),
       );
     });
 
@@ -421,7 +425,11 @@ describe("reminder repository", () => {
 
       const pending = await getPendingChanges(db);
       expect(pending).toContainEqual(
-        expect.objectContaining({ entityTable: "reminders", entityId: reminder.id, operation: "delete" }),
+        expect.objectContaining({
+          entityTable: "reminders",
+          entityId: reminder.id,
+          operation: "delete",
+        }),
       );
     });
 
@@ -429,13 +437,24 @@ describe("reminder repository", () => {
       const db = freshTestDb();
       const dueDateTime = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
       const { task } = await seedTaskInActiveSemester(db, dueDateTime);
-      const r1 = await addReminder(task.id, { kind: "relative", offsetValue: 1, offsetUnit: "days" }, db);
-      const r2 = await addReminder(task.id, { kind: "relative", offsetValue: 2, offsetUnit: "hours" }, db);
+      const r1 = await addReminder(
+        task.id,
+        { kind: "relative", offsetValue: 1, offsetUnit: "days" },
+        db,
+      );
+      const r2 = await addReminder(
+        task.id,
+        { kind: "relative", offsetValue: 2, offsetUnit: "hours" },
+        db,
+      );
 
       await cancelAllRemindersForTask(task.id, db);
 
       const pending = await getPendingChanges(db);
-      const ids = pending.filter((p) => p.entityTable === "reminders").map((p) => p.entityId).sort();
+      const ids = pending
+        .filter((p) => p.entityTable === "reminders")
+        .map((p) => p.entityId)
+        .sort();
       expect(ids).toEqual([r1.id, r2.id].sort());
       expect(pending.every((p) => p.operation === "upsert")).toBe(true);
     });
@@ -444,14 +463,22 @@ describe("reminder repository", () => {
       const db = freshTestDb();
       const dueDateTime = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
       const { task } = await seedTaskInActiveSemester(db, dueDateTime);
-      const kept = await addReminder(task.id, { kind: "relative", offsetValue: 1, offsetUnit: "days" }, db);
+      const kept = await addReminder(
+        task.id,
+        { kind: "relative", offsetValue: 1, offsetUnit: "days" },
+        db,
+      );
 
       const newDueDateTime = new Date(Date.now() + 1000 * 60 * 60 * 24 * 10);
       await rescheduleRemindersForTask(task.id, newDueDateTime, db);
 
       const pending = await getPendingChanges(db);
       expect(pending).toContainEqual(
-        expect.objectContaining({ entityTable: "reminders", entityId: kept.id, operation: "upsert" }),
+        expect.objectContaining({
+          entityTable: "reminders",
+          entityId: kept.id,
+          operation: "upsert",
+        }),
       );
     });
 
@@ -459,14 +486,22 @@ describe("reminder repository", () => {
       const db = freshTestDb();
       const dueDateTime = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
       const { task } = await seedTaskInActiveSemester(db, dueDateTime);
-      const removed = await addReminder(task.id, { kind: "relative", offsetValue: 1, offsetUnit: "days" }, db);
+      const removed = await addReminder(
+        task.id,
+        { kind: "relative", offsetValue: 1, offsetUnit: "days" },
+        db,
+      );
 
       const newDueDateTime = new Date(Date.now() + 1000 * 60 * 30);
       await rescheduleRemindersForTask(task.id, newDueDateTime, db);
 
       const pending = await getPendingChanges(db);
       expect(pending).toContainEqual(
-        expect.objectContaining({ entityTable: "reminders", entityId: removed.id, operation: "delete" }),
+        expect.objectContaining({
+          entityTable: "reminders",
+          entityId: removed.id,
+          operation: "delete",
+        }),
       );
     });
   });

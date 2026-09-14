@@ -33,7 +33,9 @@ describe("resolveSyncTimestamp", () => {
   });
 
   it("falls back to createdAt when updatedAt is null", () => {
-    expect(resolveSyncTimestamp({ updatedAt: null, createdAt: new Date(1000) })).toEqual(new Date(1000));
+    expect(resolveSyncTimestamp({ updatedAt: null, createdAt: new Date(1000) })).toEqual(
+      new Date(1000),
+    );
   });
 
   it("falls back to the current time when both are null", () => {
@@ -50,7 +52,11 @@ describe("enqueueChange / getPendingChanges / clearPendingChanges", () => {
 
     const pending = await getPendingChanges(db);
     expect(pending).toHaveLength(1);
-    expect(pending[0]).toMatchObject({ entityTable: "tasks", entityId: "task-1", operation: "upsert" });
+    expect(pending[0]).toMatchObject({
+      entityTable: "tasks",
+      entityId: "task-1",
+      operation: "upsert",
+    });
   });
 
   it("replaces the pending entry for the same entity instead of duplicating", async () => {
@@ -79,7 +85,9 @@ describe("enqueueChange / getPendingChanges / clearPendingChanges", () => {
 describe("enqueueCascadeDeleteForTask", () => {
   it("enqueues a delete for the task and every one of its subtasks/reminders/attachments", async () => {
     const db = freshTestDb();
-    await db.insert(semesters).values({ id: "sem-1", label: "2026-1", status: "active", createdAt: new Date() });
+    await db
+      .insert(semesters)
+      .values({ id: "sem-1", label: "2026-1", status: "active", createdAt: new Date() });
     await db.insert(subjects).values({
       id: "subj-1",
       name: "Física",
@@ -103,7 +111,9 @@ describe("enqueueCascadeDeleteForTask", () => {
       createdAt: new Date(),
       updatedAt: new Date(),
     });
-    await db.insert(subtasks).values({ id: "st-1", taskId: "task-5", text: "x", completed: false, order: 0 });
+    await db
+      .insert(subtasks)
+      .values({ id: "st-1", taskId: "task-5", text: "x", completed: false, order: 0 });
     await db.insert(reminders).values({
       id: "rem-1",
       taskId: "task-5",
@@ -129,7 +139,9 @@ describe("enqueueCascadeDeleteForTask", () => {
 
     const pending = await getPendingChanges(db);
     const keys = pending.map((p) => `${p.entityTable}:${p.entityId}`).sort();
-    expect(keys).toEqual(["attachments:att-1", "reminders:rem-1", "subtasks:st-1", "tasks:task-5"].sort());
+    expect(keys).toEqual(
+      ["attachments:att-1", "reminders:rem-1", "subtasks:st-1", "tasks:task-5"].sort(),
+    );
     expect(pending.every((p) => p.operation === "delete")).toBe(true);
   });
 
@@ -137,6 +149,8 @@ describe("enqueueCascadeDeleteForTask", () => {
     const db = freshTestDb();
     await enqueueCascadeDeleteForTask("task-6", db);
     const pending = await getPendingChanges(db);
-    expect(pending).toEqual([expect.objectContaining({ entityTable: "tasks", entityId: "task-6" })]);
+    expect(pending).toEqual([
+      expect.objectContaining({ entityTable: "tasks", entityId: "task-6" }),
+    ]);
   });
 });

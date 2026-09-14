@@ -216,7 +216,9 @@ describe("subtask repository — sync outbox", () => {
     await toggleSubtaskCompleted(subtask.id, true, db);
 
     const pending = await getPendingChanges(db);
-    const subtaskPending = pending.filter((p) => p.entityTable === "subtasks" && p.entityId === subtask.id);
+    const subtaskPending = pending.filter(
+      (p) => p.entityTable === "subtasks" && p.entityId === subtask.id,
+    );
     expect(subtaskPending).toHaveLength(1);
     expect(subtaskPending[0].operation).toBe("upsert");
   });
@@ -230,7 +232,11 @@ describe("subtask repository — sync outbox", () => {
 
     const pending = await getPendingChanges(db);
     expect(pending).toContainEqual(
-      expect.objectContaining({ entityTable: "subtasks", entityId: subtask.id, operation: "delete" }),
+      expect.objectContaining({
+        entityTable: "subtasks",
+        entityId: subtask.id,
+        operation: "delete",
+      }),
     );
   });
 
@@ -243,7 +249,10 @@ describe("subtask repository — sync outbox", () => {
     await moveSubtask(second.id, "up", db);
 
     const pending = await getPendingChanges(db);
-    const ids = pending.filter((p) => p.entityTable === "subtasks").map((p) => p.entityId).sort();
+    const ids = pending
+      .filter((p) => p.entityTable === "subtasks")
+      .map((p) => p.entityId)
+      .sort();
     expect(ids).toEqual([first.id, second.id].sort());
     expect(pending.every((p) => p.operation === "upsert")).toBe(true);
   });

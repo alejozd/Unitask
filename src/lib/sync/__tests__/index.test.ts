@@ -7,9 +7,16 @@ import { semesters } from "@/db/schema/semester";
 import { subjects } from "@/db/schema/subject";
 import { tasks } from "@/db/schema/task";
 import { getPendingChanges } from "../queue";
-import { runSync, isSyncConfigured, enqueueEverythingForInitialPush, SyncNotConfiguredError } from "../index";
+import {
+  runSync,
+  isSyncConfigured,
+  enqueueEverythingForInitialPush,
+  SyncNotConfiguredError,
+} from "../index";
 
-jest.mock("../push", () => ({ pushChanges: jest.fn().mockResolvedValue({ pushed: 0, rejected: 0 }) }));
+jest.mock("../push", () => ({
+  pushChanges: jest.fn().mockResolvedValue({ pushed: 0, rejected: 0 }),
+}));
 jest.mock("../pull", () => ({ pullChanges: jest.fn().mockResolvedValue({ applied: 0 }) }));
 jest.mock("../client", () => ({ isLoggedIn: jest.fn(), restoreSession: jest.fn() }));
 import { pushChanges } from "../push";
@@ -73,9 +80,32 @@ describe("isSyncConfigured", () => {
 describe("enqueueEverythingForInitialPush", () => {
   it("enqueues every existing row across every synced table", async () => {
     const db = freshTestDb();
-    await db.insert(semesters).values({ id: "sem-1", label: "2026-1", status: "active", createdAt: new Date() });
-    await db.insert(subjects).values({ id: "subj-1", name: "Física", courseCode: null, professorName: null, color: "indigo", semesterId: "sem-1", createdAt: new Date(), updatedAt: new Date() });
-    await db.insert(tasks).values({ id: "task-1", title: "T", description: null, subjectId: "subj-1", dueDateTime: new Date(), priority: "Alta", completed: false, completedAt: null, completedLate: false, createdAt: new Date(), updatedAt: new Date() });
+    await db
+      .insert(semesters)
+      .values({ id: "sem-1", label: "2026-1", status: "active", createdAt: new Date() });
+    await db.insert(subjects).values({
+      id: "subj-1",
+      name: "Física",
+      courseCode: null,
+      professorName: null,
+      color: "indigo",
+      semesterId: "sem-1",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    await db.insert(tasks).values({
+      id: "task-1",
+      title: "T",
+      description: null,
+      subjectId: "subj-1",
+      dueDateTime: new Date(),
+      priority: "Alta",
+      completed: false,
+      completedAt: null,
+      completedLate: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
 
     await enqueueEverythingForInitialPush(db);
 

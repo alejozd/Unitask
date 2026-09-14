@@ -85,7 +85,9 @@ describe("sync client", () => {
     await authenticatedFetch("/sync/push", { method: "POST" });
     expect(fetch).toHaveBeenCalledWith(
       "https://unitask-sync.zdevs.uk/sync/push",
-      expect.objectContaining({ headers: expect.objectContaining({ Authorization: "Bearer at-1" }) }),
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: "Bearer at-1" }),
+      }),
     );
   });
 
@@ -101,7 +103,11 @@ describe("sync client", () => {
         status: 200,
         json: async () => ({ accessToken: "at-2", refreshToken: "rt-2" }),
       } as Response)
-      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ ok: true }) } as Response);
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ ok: true }),
+      } as Response);
 
     const response = await authenticatedFetch("/sync/pull?since=0");
     expect(response.ok).toBe(true);

@@ -526,7 +526,13 @@ describe("task repository — sync outbox", () => {
     const { subjectId } = await seedActiveSemesterWithSubject(db);
 
     const { task } = await createTask(
-      { title: "Tarea", subjectId, dueDateTime: future, priority: "Media", subtaskTexts: ["Paso 1"] },
+      {
+        title: "Tarea",
+        subjectId,
+        dueDateTime: future,
+        priority: "Media",
+        subtaskTexts: ["Paso 1"],
+      },
       db,
     );
 
@@ -582,7 +588,13 @@ describe("task repository — sync outbox", () => {
     const db = freshTestDb();
     const { subjectId } = await seedActiveSemesterWithSubject(db);
     const { task } = await createTask(
-      { title: "Con subtareas", subjectId, dueDateTime: future, priority: "Media", subtaskTexts: ["A", "B"] },
+      {
+        title: "Con subtareas",
+        subjectId,
+        dueDateTime: future,
+        priority: "Media",
+        subtaskTexts: ["A", "B"],
+      },
       db,
     );
 

@@ -190,7 +190,11 @@ describe("attachment repository — sync outbox", () => {
 
     const pending = await getPendingChanges(db);
     expect(pending).toContainEqual(
-      expect.objectContaining({ entityTable: "attachments", entityId: attachment.id, operation: "upsert" }),
+      expect.objectContaining({
+        entityTable: "attachments",
+        entityId: attachment.id,
+        operation: "upsert",
+      }),
     );
   });
 
@@ -203,7 +207,11 @@ describe("attachment repository — sync outbox", () => {
 
     const pending = await getPendingChanges(db);
     expect(pending).toContainEqual(
-      expect.objectContaining({ entityTable: "attachments", entityId: attachment.id, operation: "delete" }),
+      expect.objectContaining({
+        entityTable: "attachments",
+        entityId: attachment.id,
+        operation: "delete",
+      }),
     );
   });
 });

@@ -10,7 +10,14 @@ import { reminders } from "@/db/schema/reminder";
 import { attachments } from "@/db/schema/attachment";
 import { resolveSyncTimestamp } from "./queue";
 
-export const SYNCED_TABLES = ["semesters", "subjects", "tasks", "subtasks", "reminders", "attachments"] as const;
+export const SYNCED_TABLES = [
+  "semesters",
+  "subjects",
+  "tasks",
+  "subtasks",
+  "reminders",
+  "attachments",
+] as const;
 export type SyncedTable = (typeof SYNCED_TABLES)[number];
 
 // Every table here has date-typed columns that must round-trip through JSON
@@ -65,7 +72,8 @@ export async function buildPayload(
     .from(schemaTable as any)
     .where(eq((schemaTable as any).id, entityId))
     .limit(1);
-  const row = rows[0] as (Record<string, unknown> & { updatedAt: Date | null; createdAt: Date | null }) | undefined;
+  const row = rows[0] as
+    (Record<string, unknown> & { updatedAt: Date | null; createdAt: Date | null }) | undefined;
   if (!row) return null;
 
   const clientUpdatedAt = resolveSyncTimestamp(row).getTime();
@@ -90,7 +98,10 @@ export async function applyUpsert(
     .limit(1);
 
   if (existing.length > 0) {
-    await database.update(schemaTable as any).set(row).where(eq((schemaTable as any).id, entityId));
+    await database
+      .update(schemaTable as any)
+      .set(row)
+      .where(eq((schemaTable as any).id, entityId));
   } else {
     await database.insert(schemaTable as any).values(row);
   }

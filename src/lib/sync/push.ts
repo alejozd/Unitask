@@ -115,7 +115,10 @@ export async function pushChanges(database: Database = defaultDb): Promise<PushS
  * durably synced either way.
  */
 export async function uploadPendingAttachmentFiles(database: Database = defaultDb): Promise<void> {
-  const pendingFiles = await database.select().from(attachments).where(isNull(attachments.syncedAt));
+  const pendingFiles = await database
+    .select()
+    .from(attachments)
+    .where(isNull(attachments.syncedAt));
 
   for (const attachment of pendingFiles) {
     try {
@@ -135,7 +138,10 @@ export async function uploadPendingAttachmentFiles(database: Database = defaultD
       });
       if (!response.ok) continue; // leave syncedAt null, retried on the next pushChanges() call
 
-      await database.update(attachments).set({ syncedAt: new Date() }).where(eq(attachments.id, attachment.id));
+      await database
+        .update(attachments)
+        .set({ syncedAt: new Date() })
+        .where(eq(attachments.id, attachment.id));
     } catch {
       // Network failure uploading this one file — leave syncedAt null and
       // move on to the next; never let one bad upload abort the batch.

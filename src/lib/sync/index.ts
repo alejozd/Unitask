@@ -56,7 +56,9 @@ const SYNCED_TABLE_DEFS = [
  * table is queued as an upsert, exactly the same way any other edit gets
  * queued. No separate "initial sync" code path in push.ts itself.
  */
-export async function enqueueEverythingForInitialPush(database: Database = defaultDb): Promise<void> {
+export async function enqueueEverythingForInitialPush(
+  database: Database = defaultDb,
+): Promise<void> {
   for (const { name, table } of SYNCED_TABLE_DEFS) {
     const rows = await database.select({ id: (table as any).id }).from(table as any);
     for (const { id } of rows) {

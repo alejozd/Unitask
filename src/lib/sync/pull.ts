@@ -42,7 +42,10 @@ async function applyReminderSideEffects(
   if (!reminder) return; // just deleted, nothing left to (re)schedule
 
   if (reminder.computedFireAt.getTime() <= Date.now()) {
-    await database.update(reminders).set({ notificationId: null }).where(eq(reminders.id, entityId));
+    await database
+      .update(reminders)
+      .set({ notificationId: null })
+      .where(eq(reminders.id, entityId));
     return;
   }
 
@@ -73,7 +76,11 @@ async function applyReminderSideEffects(
 }
 
 async function applyAttachmentSideEffects(entityId: string, database: Database): Promise<void> {
-  const rows = await database.select().from(attachments).where(eq(attachments.id, entityId)).limit(1);
+  const rows = await database
+    .select()
+    .from(attachments)
+    .where(eq(attachments.id, entityId))
+    .limit(1);
   const attachment = rows[0];
   if (!attachment) return; // just deleted
 

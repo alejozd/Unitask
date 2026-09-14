@@ -60,7 +60,10 @@ export async function toggleSubtaskCompleted(
 ): Promise<void> {
   const subtask = await getSubtaskOrThrow(id, database);
   await assertTaskEditable(subtask.taskId, database);
-  await database.update(subtasks).set({ completed, updatedAt: new Date() }).where(eq(subtasks.id, id));
+  await database
+    .update(subtasks)
+    .set({ completed, updatedAt: new Date() })
+    .where(eq(subtasks.id, id));
   await enqueueChange("subtasks", id, "upsert", database);
 }
 
@@ -98,8 +101,14 @@ export async function moveSubtask(
 
   const now = new Date();
   await database.transaction((tx) => {
-    tx.update(subtasks).set({ order: target.order, updatedAt: now }).where(eq(subtasks.id, current.id)).run();
-    tx.update(subtasks).set({ order: current.order, updatedAt: now }).where(eq(subtasks.id, target.id)).run();
+    tx.update(subtasks)
+      .set({ order: target.order, updatedAt: now })
+      .where(eq(subtasks.id, current.id))
+      .run();
+    tx.update(subtasks)
+      .set({ order: current.order, updatedAt: now })
+      .where(eq(subtasks.id, target.id))
+      .run();
   });
   await enqueueChange("subtasks", current.id, "upsert", database);
   await enqueueChange("subtasks", target.id, "upsert", database);

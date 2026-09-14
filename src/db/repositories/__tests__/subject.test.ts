@@ -265,7 +265,9 @@ describe("subject repository — sync outbox", () => {
     await updateSubject(subject.id, { name: "Biología II" }, db);
 
     const pending = await getPendingChanges(db);
-    const subjectPending = pending.filter((p) => p.entityTable === "subjects" && p.entityId === subject.id);
+    const subjectPending = pending.filter(
+      (p) => p.entityTable === "subjects" && p.entityId === subject.id,
+    );
     expect(subjectPending).toHaveLength(1);
     expect(subjectPending[0].operation).toBe("upsert");
   });

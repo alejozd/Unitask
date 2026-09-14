@@ -13,7 +13,10 @@ import { attachments } from "@/db/schema/attachment";
  * NOT NULL column to a non-empty table). A row from before this phase, or
  * one whose write path hasn't been touched yet, may have neither timestamp.
  */
-export function resolveSyncTimestamp(row: { updatedAt: Date | null; createdAt: Date | null }): Date {
+export function resolveSyncTimestamp(row: {
+  updatedAt: Date | null;
+  createdAt: Date | null;
+}): Date {
   return row.updatedAt ?? row.createdAt ?? new Date();
 }
 

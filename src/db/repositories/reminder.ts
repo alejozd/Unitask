@@ -203,7 +203,11 @@ export async function rescheduleRemindersForTask(
       }
       await database
         .update(reminders)
-        .set({ computedFireAt: action.newFireAt, notificationId: newNotificationId, updatedAt: new Date() })
+        .set({
+          computedFireAt: action.newFireAt,
+          notificationId: newNotificationId,
+          updatedAt: new Date(),
+        })
         .where(eq(reminders.id, reminder.id));
       await enqueueChange("reminders", reminder.id, "upsert", database);
     }
