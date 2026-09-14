@@ -1,7 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 
+import { useAutoSync } from "@/lib/sync/useAutoSync";
+
 export default function TabsLayout() {
+  useAutoSync();
+
   return (
     <Tabs screenOptions={{ headerShown: false }}>
       <Tabs.Screen
