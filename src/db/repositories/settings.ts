@@ -47,3 +47,35 @@ export async function saveProfile(profile: Profile, database: Database = default
     });
   }
 }
+
+/**
+ * Phase C — the sync pull cursor is local device state, not a synced field
+ * itself. Defaults to 0 (never synced yet) rather than throwing, matching
+ * `getProfile`'s own "no row yet" convention.
+ */
+export async function getSyncCursor(database: Database = defaultDb): Promise<number> {
+  const rows = await database.select({ syncCursor: settings.syncCursor }).from(settings).limit(1);
+  return rows[0]?.syncCursor ?? 0;
+}
+
+export async function setSyncCursor(cursor: number, database: Database = defaultDb): Promise<void> {
+  const rows = await database.select({ id: settings.id }).from(settings).limit(1);
+  const existing = rows[0];
+  const now = new Date();
+  if (existing) {
+    await database
+      .update(settings)
+      .set({ syncCursor: cursor, lastSyncAt: now })
+      .where(eq(settings.id, existing.id));
+  } else {
+    await database.insert(settings).values({
+      id: randomUUID(),
+      nickname: null,
+      fullName: null,
+      createdAt: now,
+      updatedAt: now,
+      syncCursor: cursor,
+      lastSyncAt: now,
+    });
+  }
+}

@@ -3,7 +3,7 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 
 import * as schema from "@/db/schema";
-import { getProfile, saveProfile } from "@/db/repositories/settings";
+import { getProfile, saveProfile, getSyncCursor, setSyncCursor } from "@/db/repositories/settings";
 import { settings } from "@/db/schema/settings";
 
 // Phase 6.6 — Minimal profile (ad-hoc, docs/11-roadmap.md's "Phase 6.6 —
@@ -48,5 +48,28 @@ describe("settings repository (profile)", () => {
     await saveProfile({ nickname: "Ale", fullName: null }, db);
     const profile = await getProfile(db);
     expect(profile).toEqual({ nickname: "Ale", fullName: null });
+  });
+});
+
+describe("settings repository — sync cursor", () => {
+  it("defaults to 0 when never set", async () => {
+    const db = freshTestDb();
+    expect(await getSyncCursor(db)).toBe(0);
+  });
+
+  it("persists and reads back a cursor without an existing settings row", async () => {
+    const db = freshTestDb();
+    await setSyncCursor(42, db);
+    expect(await getSyncCursor(db)).toBe(42);
+  });
+
+  it("updates the cursor on an existing row without creating a second one", async () => {
+    const db = freshTestDb();
+    await setSyncCursor(1, db);
+    await setSyncCursor(2, db);
+    expect(await getSyncCursor(db)).toBe(2);
+
+    const rows = await db.select().from(settings);
+    expect(rows).toHaveLength(1);
   });
 });

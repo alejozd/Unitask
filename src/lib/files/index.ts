@@ -149,6 +149,39 @@ export function deleteAttachmentFile(storedPath: string): void {
   }
 }
 
+/** Whether an attachment's file currently exists on this device. */
+export function attachmentFileExists(storedPath: string): boolean {
+  return new File(storedPath).exists;
+}
+
+/**
+ * Downloads a pulled attachment's bytes into this device's local storage,
+ * mirroring `copyIntoAttachmentStorage`'s path convention exactly (same
+ * `{taskId}/{attachmentId}-{safeName}` shape) so `openAttachment` and every
+ * other file helper work identically regardless of whether the file arrived
+ * via a local pick/photo or a sync download.
+ */
+export async function saveDownloadedAttachment(
+  taskId: string,
+  attachmentId: string,
+  originalFileName: string,
+  url: string,
+  accessToken: string,
+): Promise<{ storedPath: string }> {
+  const taskDir = new Directory(ATTACHMENTS_ROOT, taskId);
+  taskDir.create({ intermediates: true, idempotent: true });
+
+  const safeName = originalFileName.replace(/[/\\]/g, "_") || "archivo";
+  const destination = new File(taskDir, `${attachmentId}-${safeName}`);
+
+  const task = File.createDownloadTask(url, destination, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  await task.downloadAsync();
+
+  return { storedPath: destination.uri };
+}
+
 /**
  * Deletes an entire task's attachment directory (and everything inside
  * it) in one call — used on task deletion, per 09-file-management.md's
