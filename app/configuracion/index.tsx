@@ -19,6 +19,8 @@ import Constants from "expo-constants";
 import { getProfile, saveProfile } from "@/db/repositories/settings";
 import { exportBackupJson, importBackup } from "@/db/repositories/backup";
 import { parseBackupFile, type BackupTables } from "@/domain/backup";
+import { register, login, logout, isLoggedIn } from "@/lib/sync/client";
+import { runSync, enqueueEverythingForInitialPush, SyncNotConfiguredError } from "@/lib/sync";
 import { colors } from "@/theme";
 
 export default function ConfiguracionScreen() {
@@ -28,6 +30,11 @@ export default function ConfiguracionScreen() {
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [syncEmail, setSyncEmail] = useState("");
+  const [syncPassword, setSyncPassword] = useState("");
+  const [syncing, setSyncing] = useState(false);
+  const [syncLoggedIn, setSyncLoggedIn] = useState(() => isLoggedIn());
+  const [syncStatus, setSyncStatus] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -54,6 +61,59 @@ export default function ConfiguracionScreen() {
       Alert.alert("Error", "No se pudo guardar el perfil.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleSyncAuth(mode: "login" | "register") {
+    if (!syncEmail.trim() || !syncPassword) {
+      Alert.alert("Datos incompletos", "Ingresá un email y una contraseña.");
+      return;
+    }
+    setSyncing(true);
+    try {
+      if (mode === "register") {
+        await register(syncEmail.trim(), syncPassword);
+      }
+      await login(syncEmail.trim(), syncPassword);
+      await enqueueEverythingForInitialPush();
+      setSyncLoggedIn(true);
+      setSyncPassword("");
+      setSyncStatus("Cuenta vinculada. Sincronizando…");
+      await handleSyncNow();
+    } catch {
+      Alert.alert("Error", "No se pudo iniciar sesión de sincronización.");
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  async function handleSyncNow() {
+    setSyncing(true);
+    try {
+      const result = await runSync();
+      setSyncStatus(
+        `Última sincronización: ${new Date().toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })} · ${result.pulled} cambio(s) recibido(s), ${result.pushed} enviado(s).`,
+      );
+    } catch (error) {
+      if (error instanceof SyncNotConfiguredError) {
+        setSyncLoggedIn(false);
+        setSyncStatus(null);
+      } else {
+        setSyncStatus("No se pudo sincronizar. Se reintentará automáticamente.");
+      }
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  async function handleSyncLogout() {
+    setSyncing(true);
+    try {
+      await logout();
+      setSyncLoggedIn(false);
+      setSyncStatus(null);
+    } finally {
+      setSyncing(false);
     }
   }
 
@@ -231,6 +291,70 @@ export default function ConfiguracionScreen() {
                 {importing ? "Importando…" : "Importar datos"}
               </Text>
             </TouchableOpacity>
+          </View>
+
+          <View style={styles.dataSection}>
+            <Text style={styles.sectionTitle}>Sincronizar</Text>
+            {syncLoggedIn ? (
+              <>
+                <Text style={styles.sectionNote}>
+                  {syncStatus ?? "Cuenta vinculada. Sincroniza automáticamente cada 10 minutos."}
+                </Text>
+                <TouchableOpacity
+                  style={[styles.secondaryButton, syncing && styles.saveButtonDisabled]}
+                  onPress={handleSyncNow}
+                  disabled={syncing}
+                >
+                  <Text style={styles.secondaryButtonText}>
+                    {syncing ? "Sincronizando…" : "Sincronizar ahora"}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.secondaryButton, syncing && styles.saveButtonDisabled]}
+                  onPress={handleSyncLogout}
+                  disabled={syncing}
+                >
+                  <Text style={styles.secondaryButtonText}>Cerrar sesión de sincronización</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <Text style={styles.sectionNote}>
+                  Vinculá una cuenta para compartir tus datos entre dispositivos.
+                </Text>
+                <TextInput
+                  style={styles.input}
+                  value={syncEmail}
+                  onChangeText={setSyncEmail}
+                  placeholder="Email"
+                  placeholderTextColor={colors.textMuted}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                />
+                <TextInput
+                  style={styles.input}
+                  value={syncPassword}
+                  onChangeText={setSyncPassword}
+                  placeholder="Contraseña"
+                  placeholderTextColor={colors.textMuted}
+                  secureTextEntry
+                />
+                <TouchableOpacity
+                  style={[styles.secondaryButton, syncing && styles.saveButtonDisabled]}
+                  onPress={() => handleSyncAuth("login")}
+                  disabled={syncing}
+                >
+                  <Text style={styles.secondaryButtonText}>Iniciar sesión</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.secondaryButton, syncing && styles.saveButtonDisabled]}
+                  onPress={() => handleSyncAuth("register")}
+                  disabled={syncing}
+                >
+                  <Text style={styles.secondaryButtonText}>Crear cuenta</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
 
           <View style={styles.dataSection}>
