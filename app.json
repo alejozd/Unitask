@@ -42,7 +42,8 @@
           "cameraPermission": "UniTask necesita acceder a la cámara para adjuntar fotos a tus tareas.",
           "microphonePermission": false
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "extra": {
       "router": {},
