@@ -8,6 +8,7 @@ export const semesters = sqliteTable("semesters", {
   status: text("status", { enum: SEMESTER_STATUSES }).notNull(),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   closedAt: integer("closed_at", { mode: "timestamp" }),
+  updatedAt: integer("updated_at", { mode: "timestamp" }),
 });
 
 export type Semester = typeof semesters.$inferSelect;

@@ -21,6 +21,7 @@ export const reminders = sqliteTable("reminders", {
   // scheduled; null once fired or cancelled.
   notificationId: text("notification_id"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }),
 });
 
 export type Reminder = typeof reminders.$inferSelect;

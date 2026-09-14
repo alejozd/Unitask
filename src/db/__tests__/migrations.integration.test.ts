@@ -22,6 +22,7 @@ describe("schema migrations", () => {
       "settings",
       "subjects",
       "subtasks",
+      "sync_log",
       "tasks",
     ]);
 

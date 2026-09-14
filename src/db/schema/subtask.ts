@@ -10,6 +10,8 @@ export const subtasks = sqliteTable("subtasks", {
   text: text("text").notNull(),
   completed: integer("completed", { mode: "boolean" }).notNull().default(false),
   order: integer("order").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }),
+  updatedAt: integer("updated_at", { mode: "timestamp" }),
 });
 
 export type Subtask = typeof subtasks.$inferSelect;

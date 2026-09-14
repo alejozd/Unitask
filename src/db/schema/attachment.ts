@@ -12,6 +12,9 @@ export const attachments = sqliteTable("attachments", {
   mimeType: text("mime_type").notNull(),
   sizeBytes: integer("size_bytes").notNull(),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }),
+  // Phase C: null means this file has never been uploaded to the sync server.
+  syncedAt: integer("synced_at", { mode: "timestamp" }),
 });
 
 export type Attachment = typeof attachments.$inferSelect;

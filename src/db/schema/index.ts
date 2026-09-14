@@ -5,3 +5,4 @@ export * from "./subtask";
 export * from "./reminder";
 export * from "./attachment";
 export * from "./settings";
+export * from "./sync-log";
