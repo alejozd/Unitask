@@ -18,6 +18,7 @@ import {
 } from "@/db/repositories/task";
 import * as notifications from "@/lib/notifications";
 import * as files from "@/lib/files";
+import { getPendingChanges } from "@/lib/sync/queue";
 
 jest.mock("@/lib/notifications");
 jest.mock("@/lib/files");
@@ -516,5 +517,82 @@ describe("task repository", () => {
       expect(mockedNotifications.cancelDueNotification).toHaveBeenCalledWith(task.id);
       expect(mockedNotifications.scheduleDueNotification).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe("task repository — sync outbox", () => {
+  it("createTask enqueues an upsert for the task and each initial subtask", async () => {
+    const db = freshTestDb();
+    const { subjectId } = await seedActiveSemesterWithSubject(db);
+
+    const { task } = await createTask(
+      { title: "Tarea", subjectId, dueDateTime: future, priority: "Media", subtaskTexts: ["Paso 1"] },
+      db,
+    );
+
+    const pending = await getPendingChanges(db);
+    expect(pending).toContainEqual(
+      expect.objectContaining({ entityTable: "tasks", entityId: task.id, operation: "upsert" }),
+    );
+    const subtaskPending = pending.filter((p) => p.entityTable === "subtasks");
+    expect(subtaskPending).toHaveLength(1);
+    expect(subtaskPending[0].operation).toBe("upsert");
+  });
+
+  it("updateTask enqueues a tasks upsert", async () => {
+    const db = freshTestDb();
+    const { subjectId } = await seedActiveSemesterWithSubject(db);
+    const { task } = await createTask(
+      { title: "Original", subjectId, dueDateTime: future, priority: "Baja" },
+      db,
+    );
+
+    await updateTask(task.id, { title: "Actualizada" }, db);
+
+    const pending = await getPendingChanges(db);
+    const taskPending = pending.filter((p) => p.entityTable === "tasks" && p.entityId === task.id);
+    expect(taskPending).toHaveLength(1);
+    expect(taskPending[0].operation).toBe("upsert");
+  });
+
+  it("deleteTask enqueues the full cascade delete (task + subtasks + reminders + attachments)", async () => {
+    const db = freshTestDb();
+    const { subjectId } = await seedActiveSemesterWithSubject(db);
+    const { task } = await createTask(
+      {
+        title: "Con todo",
+        subjectId,
+        dueDateTime: future,
+        priority: "Media",
+        subtaskTexts: ["Paso 1"],
+        reminderSpecs: [{ kind: "relative", offsetValue: 1, offsetUnit: "days" }],
+      },
+      db,
+    );
+
+    await deleteTask(task.id, db);
+
+    const pending = await getPendingChanges(db);
+    const tables = pending.map((p) => p.entityTable).sort();
+    expect(tables).toEqual(["reminders", "subtasks", "tasks"].sort());
+    expect(pending.every((p) => p.operation === "delete")).toBe(true);
+  });
+
+  it("completeTaskAction enqueues an upsert for the task and every auto-checked subtask", async () => {
+    const db = freshTestDb();
+    const { subjectId } = await seedActiveSemesterWithSubject(db);
+    const { task } = await createTask(
+      { title: "Con subtareas", subjectId, dueDateTime: future, priority: "Media", subtaskTexts: ["A", "B"] },
+      db,
+    );
+
+    await completeTaskAction(task.id, db);
+
+    const pending = await getPendingChanges(db);
+    const taskPending = pending.find((p) => p.entityTable === "tasks" && p.entityId === task.id);
+    expect(taskPending?.operation).toBe("upsert");
+    const subtaskPending = pending.filter((p) => p.entityTable === "subtasks");
+    expect(subtaskPending).toHaveLength(2);
+    expect(subtaskPending.every((p) => p.operation === "upsert")).toBe(true);
   });
 });

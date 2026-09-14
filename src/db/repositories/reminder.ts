@@ -4,6 +4,7 @@ import { and, eq, isNotNull } from "drizzle-orm";
 import { db as defaultDb } from "@/db/client";
 import { assertTaskEditable } from "@/db/repositories/task-access";
 import type { Database } from "@/db/repositories/semester";
+import { enqueueChange } from "@/lib/sync/queue";
 import { reminders, type Reminder } from "@/db/schema/reminder";
 import { subjects } from "@/db/schema/subject";
 import {
@@ -78,8 +79,10 @@ export async function addReminder(
     computedFireAt,
     notificationId,
     createdAt: new Date(),
+    updatedAt: new Date(),
   };
   await database.insert(reminders).values(newReminder);
+  await enqueueChange("reminders", newReminder.id, "upsert", database);
   return newReminder as Reminder;
 }
 
@@ -91,6 +94,7 @@ export async function removeReminder(id: string, database: Database = defaultDb)
     await cancelReminderNotification(reminder.notificationId);
   }
   await database.delete(reminders).where(eq(reminders.id, id));
+  await enqueueChange("reminders", id, "delete", database);
 }
 
 /**
@@ -121,8 +125,9 @@ export async function cancelAllRemindersForTask(
     await cancelReminderNotification(reminder.notificationId as string);
     await database
       .update(reminders)
-      .set({ notificationId: null })
+      .set({ notificationId: null, updatedAt: new Date() })
       .where(eq(reminders.id, reminder.id));
+    await enqueueChange("reminders", reminder.id, "upsert", database);
   }
 
   await cancelDueNotification(taskId);
@@ -179,6 +184,7 @@ export async function rescheduleRemindersForTask(
         await cancelReminderNotification(reminder.notificationId);
       }
       await database.delete(reminders).where(eq(reminders.id, reminder.id));
+      await enqueueChange("reminders", reminder.id, "delete", database);
       removedCount += 1;
       continue;
     }
@@ -197,8 +203,9 @@ export async function rescheduleRemindersForTask(
       }
       await database
         .update(reminders)
-        .set({ computedFireAt: action.newFireAt, notificationId: newNotificationId })
+        .set({ computedFireAt: action.newFireAt, notificationId: newNotificationId, updatedAt: new Date() })
         .where(eq(reminders.id, reminder.id));
+      await enqueueChange("reminders", reminder.id, "upsert", database);
     }
     // "unchanged" appears for reminders whose computedFireAt is already in
     // the past (already fired, but never reconciled since there is no

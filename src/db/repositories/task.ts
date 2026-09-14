@@ -16,6 +16,7 @@ import { tasks, type Task } from "@/db/schema/task";
 import { completeTask } from "@/domain/task-completion";
 import type { ReminderSpec } from "@/domain/reminder-scheduling";
 import { requestNotificationPermission, scheduleDueNotification } from "@/lib/notifications";
+import { enqueueChange, enqueueCascadeDeleteForTask } from "@/lib/sync/queue";
 
 export { assertTaskEditable };
 
@@ -110,6 +111,11 @@ export async function createTask(
     }
   }
 
+  await enqueueChange("tasks", newTask.id, "upsert", database);
+  for (const subtask of newSubtasks) {
+    await enqueueChange("subtasks", subtask.id, "upsert", database);
+  }
+
   return { task: newTask as Task, remindersUnscheduled };
 }
 
@@ -144,6 +150,7 @@ export async function updateTask(
     .update(tasks)
     .set({ ...input, updatedAt: new Date() })
     .where(eq(tasks.id, id));
+  await enqueueChange("tasks", id, "upsert", database);
 
   let remindersRemoved = 0;
   if (input.dueDateTime !== undefined) {
@@ -165,6 +172,11 @@ export async function deleteTask(id: string, database: Database = defaultDb): Pr
   // Delete copied attachment files before the cascade-delete removes the
   // attachment rows themselves — same ordering reason as reminders above.
   await deleteAttachmentFilesForTask(id, database);
+
+  // Same ordering reason again: the sync outbox needs to enumerate the
+  // still-existing subtask/reminder/attachment rows before the delete below
+  // cascades them away.
+  await enqueueCascadeDeleteForTask(id, database);
 
   // Subtasks, reminders, and attachments cascade-delete automatically via
   // ON DELETE CASCADE (Phase 1 schema) now that PRAGMA foreign_keys=ON is
@@ -211,6 +223,11 @@ export async function completeTaskAction(
       tx.update(subtasks).set({ completed: true }).where(eq(subtasks.id, subtaskId)).run();
     }
   });
+
+  await enqueueChange("tasks", id, "upsert", database);
+  for (const subtaskId of result.subtaskIdsToCheck) {
+    await enqueueChange("subtasks", subtaskId, "upsert", database);
+  }
 
   await cancelAllRemindersForTask(id, database);
 }

@@ -6,6 +6,7 @@ import type { Database } from "@/db/repositories/semester";
 import { SemesterReadOnlyError } from "@/db/repositories/errors";
 import { deleteAttachmentFilesForTask } from "@/db/repositories/attachment";
 import { cancelAllRemindersForTask } from "@/db/repositories/reminder";
+import { enqueueChange, enqueueCascadeDeleteForTask } from "@/lib/sync/queue";
 import { semesters } from "@/db/schema/semester";
 import { subjects, SUBJECT_COLORS, type Subject } from "@/db/schema/subject";
 import { subtasks } from "@/db/schema/subtask";
@@ -94,6 +95,7 @@ export async function createSubject(
   };
 
   await database.insert(subjects).values(newSubject);
+  await enqueueChange("subjects", newSubject.id, "upsert", database);
   return newSubject as Subject;
 }
 
@@ -123,6 +125,7 @@ export async function updateSubject(
     .update(subjects)
     .set({ ...input, updatedAt: new Date() })
     .where(eq(subjects.id, id));
+  await enqueueChange("subjects", id, "upsert", database);
 }
 
 export async function deleteSubject(id: string, database: Database = defaultDb): Promise<void> {
@@ -151,6 +154,7 @@ export async function deleteSubject(id: string, database: Database = defaultDb):
   for (const taskId of check.cascadeDeleteTaskIds ?? []) {
     await cancelAllRemindersForTask(taskId, database);
     await deleteAttachmentFilesForTask(taskId, database);
+    await enqueueCascadeDeleteForTask(taskId, database);
   }
 
   // Subjects, their remaining (non-blocking) tasks, and those tasks'
@@ -158,6 +162,7 @@ export async function deleteSubject(id: string, database: Database = defaultDb):
   // DELETE CASCADE (Phase 1) now that PRAGMA foreign_keys=ON is active
   // (Phase 2 Task 1) — no manual row cleanup needed here.
   await database.delete(subjects).where(eq(subjects.id, id));
+  await enqueueChange("subjects", id, "delete", database);
 }
 
 // Referenced only by tests and potential future CLI/tooling use — no screen

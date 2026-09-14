@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { db as defaultDb } from "@/db/client";
 import type { Database } from "@/db/repositories/semester";
 import { assertTaskEditable } from "@/db/repositories/task-access";
+import { enqueueChange } from "@/lib/sync/queue";
 import { attachments, type Attachment } from "@/db/schema/attachment";
 import { validateAttachment } from "@/domain/attachment-validation";
 import {
@@ -49,8 +50,10 @@ export async function addAttachment(
     mimeType: picked.mimeType as string, // validated non-null above (invalid type would have thrown)
     sizeBytes,
     createdAt: new Date(),
+    updatedAt: new Date(),
   };
   await database.insert(attachments).values(newAttachment);
+  await enqueueChange("attachments", id, "upsert", database);
   return newAttachment as Attachment;
 }
 
@@ -67,6 +70,7 @@ export async function removeAttachment(id: string, database: Database = defaultD
 
   deleteAttachmentFile(attachment.storedPath);
   await database.delete(attachments).where(eq(attachments.id, id));
+  await enqueueChange("attachments", id, "delete", database);
 }
 
 /**

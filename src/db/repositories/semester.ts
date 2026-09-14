@@ -5,6 +5,7 @@ import type { BaseSQLiteDatabase } from "drizzle-orm/sqlite-core";
 import { db as defaultDb } from "@/db/client";
 import * as schema from "@/db/schema";
 import { cancelAllRemindersForTask } from "@/db/repositories/reminder";
+import { enqueueChange } from "@/lib/sync/queue";
 import { semesters, type Semester } from "@/db/schema/semester";
 import { subjects } from "@/db/schema/subject";
 import { tasks } from "@/db/schema/task";
@@ -84,6 +85,11 @@ export async function createSemester(
     tx.insert(semesters).values(newSemester).run();
   });
 
+  for (const id of plan.semesterIdsToClose) {
+    await enqueueChange("semesters", id, "upsert", database);
+  }
+  await enqueueChange("semesters", newSemester.id, "upsert", database);
+
   return { ...newSemester, closedAt: null, updatedAt: null };
 }
 
@@ -93,8 +99,9 @@ export async function closeSemester(id: string, database: Database = defaultDb):
 
   await database
     .update(semesters)
-    .set({ status: "closed", closedAt: new Date() })
+    .set({ status: "closed", closedAt: new Date(), updatedAt: new Date() })
     .where(eq(semesters.id, id));
+  await enqueueChange("semesters", id, "upsert", database);
 }
 
 export async function getActiveSemester(

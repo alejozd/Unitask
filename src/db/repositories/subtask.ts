@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { db as defaultDb } from "@/db/client";
 import { assertTaskEditable } from "@/db/repositories/task";
 import type { Database } from "@/db/repositories/semester";
+import { enqueueChange } from "@/lib/sync/queue";
 import { subtasks, type Subtask } from "@/db/schema/subtask";
 
 async function getSubtaskOrThrow(id: string, database: Database) {
@@ -26,14 +27,18 @@ export async function addSubtask(
     .where(eq(subtasks.taskId, taskId));
   const nextOrder = existing.length === 0 ? 0 : Math.max(...existing.map((s) => s.order)) + 1;
 
+  const now = new Date();
   const newSubtask: typeof subtasks.$inferInsert = {
     id: randomUUID(),
     taskId,
     text,
     completed: false,
     order: nextOrder,
+    createdAt: now,
+    updatedAt: now,
   };
   await database.insert(subtasks).values(newSubtask);
+  await enqueueChange("subtasks", newSubtask.id, "upsert", database);
   return newSubtask as Subtask;
 }
 
@@ -44,7 +49,8 @@ export async function updateSubtaskText(
 ): Promise<void> {
   const subtask = await getSubtaskOrThrow(id, database);
   await assertTaskEditable(subtask.taskId, database);
-  await database.update(subtasks).set({ text }).where(eq(subtasks.id, id));
+  await database.update(subtasks).set({ text, updatedAt: new Date() }).where(eq(subtasks.id, id));
+  await enqueueChange("subtasks", id, "upsert", database);
 }
 
 export async function toggleSubtaskCompleted(
@@ -54,13 +60,15 @@ export async function toggleSubtaskCompleted(
 ): Promise<void> {
   const subtask = await getSubtaskOrThrow(id, database);
   await assertTaskEditable(subtask.taskId, database);
-  await database.update(subtasks).set({ completed }).where(eq(subtasks.id, id));
+  await database.update(subtasks).set({ completed, updatedAt: new Date() }).where(eq(subtasks.id, id));
+  await enqueueChange("subtasks", id, "upsert", database);
 }
 
 export async function deleteSubtask(id: string, database: Database = defaultDb): Promise<void> {
   const subtask = await getSubtaskOrThrow(id, database);
   await assertTaskEditable(subtask.taskId, database);
   await database.delete(subtasks).where(eq(subtasks.id, id));
+  await enqueueChange("subtasks", id, "delete", database);
 }
 
 /**
@@ -88,8 +96,11 @@ export async function moveSubtask(
   const current = siblings[currentIndex];
   const target = siblings[targetIndex];
 
+  const now = new Date();
   await database.transaction((tx) => {
-    tx.update(subtasks).set({ order: target.order }).where(eq(subtasks.id, current.id)).run();
-    tx.update(subtasks).set({ order: current.order }).where(eq(subtasks.id, target.id)).run();
+    tx.update(subtasks).set({ order: target.order, updatedAt: now }).where(eq(subtasks.id, current.id)).run();
+    tx.update(subtasks).set({ order: current.order, updatedAt: now }).where(eq(subtasks.id, target.id)).run();
   });
+  await enqueueChange("subtasks", current.id, "upsert", database);
+  await enqueueChange("subtasks", target.id, "upsert", database);
 }

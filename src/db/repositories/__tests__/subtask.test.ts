@@ -9,6 +9,7 @@ import { subjects } from "@/db/schema/subject";
 import { subtasks } from "@/db/schema/subtask";
 import { createTask } from "@/db/repositories/task";
 import { SemesterReadOnlyError } from "@/db/repositories/subject";
+import { getPendingChanges } from "@/lib/sync/queue";
 import {
   addSubtask,
   deleteSubtask,
@@ -202,5 +203,48 @@ describe("subtask repository", () => {
     await db.update(semesters).set({ status: "closed", closedAt: new Date() });
 
     await expect(moveSubtask(subtask.id, "up", db)).rejects.toThrow(SemesterReadOnlyError);
+  });
+});
+
+describe("subtask repository — sync outbox", () => {
+  it("addSubtask, updateSubtaskText, and toggleSubtaskCompleted each enqueue an upsert", async () => {
+    const db = freshTestDb();
+    const { task } = await seedTaskInActiveSemester(db);
+
+    const subtask = await addSubtask(task.id, "Paso", db);
+    await updateSubtaskText(subtask.id, "Editado", db);
+    await toggleSubtaskCompleted(subtask.id, true, db);
+
+    const pending = await getPendingChanges(db);
+    const subtaskPending = pending.filter((p) => p.entityTable === "subtasks" && p.entityId === subtask.id);
+    expect(subtaskPending).toHaveLength(1);
+    expect(subtaskPending[0].operation).toBe("upsert");
+  });
+
+  it("deleteSubtask enqueues a subtasks delete", async () => {
+    const db = freshTestDb();
+    const { task } = await seedTaskInActiveSemester(db);
+    const subtask = await addSubtask(task.id, "Paso", db);
+
+    await deleteSubtask(subtask.id, db);
+
+    const pending = await getPendingChanges(db);
+    expect(pending).toContainEqual(
+      expect.objectContaining({ entityTable: "subtasks", entityId: subtask.id, operation: "delete" }),
+    );
+  });
+
+  it("moveSubtask enqueues an upsert for both swapped subtasks", async () => {
+    const db = freshTestDb();
+    const { task } = await seedTaskInActiveSemester(db);
+    const first = await addSubtask(task.id, "Uno", db);
+    const second = await addSubtask(task.id, "Dos", db);
+
+    await moveSubtask(second.id, "up", db);
+
+    const pending = await getPendingChanges(db);
+    const ids = pending.filter((p) => p.entityTable === "subtasks").map((p) => p.entityId).sort();
+    expect(ids).toEqual([first.id, second.id].sort());
+    expect(pending.every((p) => p.operation === "upsert")).toBe(true);
   });
 });

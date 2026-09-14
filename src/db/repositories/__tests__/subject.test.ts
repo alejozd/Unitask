@@ -10,6 +10,7 @@ import { reminders } from "@/db/schema/reminder";
 import { attachments } from "@/db/schema/attachment";
 import * as notifications from "@/lib/notifications";
 import * as files from "@/lib/files";
+import { getPendingChanges } from "@/lib/sync/queue";
 import {
   SemesterReadOnlyError,
   SubjectDeletionBlockedError,
@@ -253,5 +254,70 @@ describe("subject repository", () => {
     const results = await listSubjectsForSemesterQuery(semesterId, db);
 
     expect(results.map((s) => s.name)).toEqual(["Álgebra", "Zoología"]);
+  });
+});
+
+describe("subject repository — sync outbox", () => {
+  it("createSubject and updateSubject each enqueue a subjects upsert", async () => {
+    const db = freshTestDb();
+    const semesterId = await seedActiveSemester(db);
+    const subject = await createSubject({ name: "Biología", color: "indigo", semesterId }, db);
+    await updateSubject(subject.id, { name: "Biología II" }, db);
+
+    const pending = await getPendingChanges(db);
+    const subjectPending = pending.filter((p) => p.entityTable === "subjects" && p.entityId === subject.id);
+    expect(subjectPending).toHaveLength(1);
+    expect(subjectPending[0].operation).toBe("upsert");
+  });
+
+  it("deleteSubject enqueues a subjects delete plus a full cascade delete for every removed task", async () => {
+    const db = freshTestDb();
+    const semesterId = await seedActiveSemester(db);
+    const subject = await createSubject({ name: "Geografía", color: "amber", semesterId }, db);
+
+    await db.insert(tasks).values({
+      id: "task-cascade",
+      title: "Tarea vencida",
+      subjectId: subject.id,
+      dueDateTime: new Date(Date.now() - 1000 * 60 * 60 * 24),
+      priority: "Media",
+      completed: false,
+      completedLate: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    await db.insert(reminders).values({
+      id: "reminder-cascade",
+      taskId: "task-cascade",
+      kind: "relative",
+      offsetValue: 1,
+      offsetUnit: "days",
+      computedFireAt: new Date(Date.now() - 1000 * 60 * 60 * 48),
+      notificationId: "mock-notification-cascade",
+      createdAt: new Date(),
+    });
+    await db.insert(attachments).values({
+      id: "attachment-cascade",
+      taskId: "task-cascade",
+      originalFileName: "notas.pdf",
+      storedPath: "/fake/attachments/task-cascade/attachment-cascade-notas.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 1024,
+      createdAt: new Date(),
+    });
+
+    await deleteSubject(subject.id, db);
+
+    const pending = await getPendingChanges(db);
+    const keys = pending.map((p) => `${p.entityTable}:${p.entityId}`).sort();
+    expect(keys).toEqual(
+      [
+        `subjects:${subject.id}`,
+        "tasks:task-cascade",
+        "reminders:reminder-cascade",
+        "attachments:attachment-cascade",
+      ].sort(),
+    );
+    expect(pending.every((p) => p.operation === "delete")).toBe(true);
   });
 });

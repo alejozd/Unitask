@@ -16,6 +16,7 @@ import {
   rescheduleRemindersForTask,
 } from "@/db/repositories/reminder";
 import * as notifications from "@/lib/notifications";
+import { getPendingChanges } from "@/lib/sync/queue";
 
 jest.mock("@/lib/notifications");
 const mockedNotifications = jest.mocked(notifications);
@@ -385,6 +386,88 @@ describe("reminder repository", () => {
       await expect(
         rescheduleRemindersForTask(task.id, new Date(Date.now() + 1000 * 60 * 60 * 24 * 20), db),
       ).rejects.toThrow(SemesterReadOnlyError);
+    });
+  });
+
+  describe("sync outbox", () => {
+    it("addReminder enqueues an upsert", async () => {
+      const db = freshTestDb();
+      const dueDateTime = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
+      const { task } = await seedTaskInActiveSemester(db, dueDateTime);
+
+      const reminder = await addReminder(
+        task.id,
+        { kind: "relative", offsetValue: 1, offsetUnit: "days" },
+        db,
+      );
+
+      const pending = await getPendingChanges(db);
+      expect(pending).toContainEqual(
+        expect.objectContaining({ entityTable: "reminders", entityId: reminder.id, operation: "upsert" }),
+      );
+    });
+
+    it("removeReminder enqueues a delete", async () => {
+      const db = freshTestDb();
+      const dueDateTime = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
+      const { task } = await seedTaskInActiveSemester(db, dueDateTime);
+      const reminder = await addReminder(
+        task.id,
+        { kind: "relative", offsetValue: 1, offsetUnit: "days" },
+        db,
+      );
+
+      await removeReminder(reminder.id, db);
+
+      const pending = await getPendingChanges(db);
+      expect(pending).toContainEqual(
+        expect.objectContaining({ entityTable: "reminders", entityId: reminder.id, operation: "delete" }),
+      );
+    });
+
+    it("cancelAllRemindersForTask enqueues an upsert for every reminder it clears", async () => {
+      const db = freshTestDb();
+      const dueDateTime = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
+      const { task } = await seedTaskInActiveSemester(db, dueDateTime);
+      const r1 = await addReminder(task.id, { kind: "relative", offsetValue: 1, offsetUnit: "days" }, db);
+      const r2 = await addReminder(task.id, { kind: "relative", offsetValue: 2, offsetUnit: "hours" }, db);
+
+      await cancelAllRemindersForTask(task.id, db);
+
+      const pending = await getPendingChanges(db);
+      const ids = pending.filter((p) => p.entityTable === "reminders").map((p) => p.entityId).sort();
+      expect(ids).toEqual([r1.id, r2.id].sort());
+      expect(pending.every((p) => p.operation === "upsert")).toBe(true);
+    });
+
+    it("rescheduleRemindersForTask enqueues a delete for a removed reminder and an upsert for a kept one", async () => {
+      const db = freshTestDb();
+      const dueDateTime = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
+      const { task } = await seedTaskInActiveSemester(db, dueDateTime);
+      const kept = await addReminder(task.id, { kind: "relative", offsetValue: 1, offsetUnit: "days" }, db);
+
+      const newDueDateTime = new Date(Date.now() + 1000 * 60 * 60 * 24 * 10);
+      await rescheduleRemindersForTask(task.id, newDueDateTime, db);
+
+      const pending = await getPendingChanges(db);
+      expect(pending).toContainEqual(
+        expect.objectContaining({ entityTable: "reminders", entityId: kept.id, operation: "upsert" }),
+      );
+    });
+
+    it("rescheduleRemindersForTask enqueues a delete when a reminder is removed instead of kept", async () => {
+      const db = freshTestDb();
+      const dueDateTime = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
+      const { task } = await seedTaskInActiveSemester(db, dueDateTime);
+      const removed = await addReminder(task.id, { kind: "relative", offsetValue: 1, offsetUnit: "days" }, db);
+
+      const newDueDateTime = new Date(Date.now() + 1000 * 60 * 30);
+      await rescheduleRemindersForTask(task.id, newDueDateTime, db);
+
+      const pending = await getPendingChanges(db);
+      expect(pending).toContainEqual(
+        expect.objectContaining({ entityTable: "reminders", entityId: removed.id, operation: "delete" }),
+      );
     });
   });
 });

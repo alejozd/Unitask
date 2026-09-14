@@ -12,6 +12,7 @@ import {
 } from "@/db/repositories/semester";
 import { addReminder } from "@/db/repositories/reminder";
 import { createTask } from "@/db/repositories/task";
+import { getPendingChanges } from "@/lib/sync/queue";
 import { reminders } from "@/db/schema/reminder";
 import { subjects } from "@/db/schema/subject";
 import * as notifications from "@/lib/notifications";
@@ -163,5 +164,36 @@ describe("semester repository", () => {
     );
     const [row] = await db.select().from(reminders).where(eq(reminders.id, reminder.id));
     expect(row.notificationId).toBeNull();
+  });
+});
+
+describe("semester repository — sync outbox", () => {
+  it("createSemester enqueues an upsert for the new semester", async () => {
+    const db = freshTestDb();
+    const semester = await createSemester("2026-1", db);
+    const pending = await getPendingChanges(db);
+    expect(pending).toContainEqual(
+      expect.objectContaining({ entityTable: "semesters", entityId: semester.id, operation: "upsert" }),
+    );
+  });
+
+  it("createSemester also enqueues an upsert for a semester it auto-closes", async () => {
+    const db = freshTestDb();
+    const first = await createSemester("2025-2", db);
+    await createSemester("2026-1", db);
+    const pending = await getPendingChanges(db);
+    expect(pending).toContainEqual(
+      expect.objectContaining({ entityTable: "semesters", entityId: first.id, operation: "upsert" }),
+    );
+  });
+
+  it("closeSemester enqueues an upsert for the closed semester", async () => {
+    const db = freshTestDb();
+    const semester = await createSemester("2026-1", db);
+    await closeSemester(semester.id, db);
+    const pending = await getPendingChanges(db);
+    expect(pending).toContainEqual(
+      expect.objectContaining({ entityTable: "semesters", entityId: semester.id, operation: "upsert" }),
+    );
   });
 });

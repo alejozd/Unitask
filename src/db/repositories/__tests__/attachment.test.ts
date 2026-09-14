@@ -16,6 +16,7 @@ import {
   removeAttachment,
 } from "@/db/repositories/attachment";
 import * as files from "@/lib/files";
+import { getPendingChanges } from "@/lib/sync/queue";
 
 jest.mock("@/lib/files");
 const mockedFiles = jest.mocked(files);
@@ -177,5 +178,32 @@ describe("deleteAttachmentFilesForTask", () => {
 
     await expect(deleteAttachmentFilesForTask(task.id, db)).rejects.toThrow(SemesterReadOnlyError);
     expect(mockedFiles.deleteAttachmentDirectoryForTask).not.toHaveBeenCalled();
+  });
+});
+
+describe("attachment repository — sync outbox", () => {
+  it("addAttachment enqueues an upsert", async () => {
+    const db = freshTestDb();
+    const { task } = await seedTaskInActiveSemester(db);
+
+    const attachment = await addAttachment(task.id, VALID_PICKED, db);
+
+    const pending = await getPendingChanges(db);
+    expect(pending).toContainEqual(
+      expect.objectContaining({ entityTable: "attachments", entityId: attachment.id, operation: "upsert" }),
+    );
+  });
+
+  it("removeAttachment enqueues a delete", async () => {
+    const db = freshTestDb();
+    const { task } = await seedTaskInActiveSemester(db);
+    const attachment = await addAttachment(task.id, VALID_PICKED, db);
+
+    await removeAttachment(attachment.id, db);
+
+    const pending = await getPendingChanges(db);
+    expect(pending).toContainEqual(
+      expect.objectContaining({ entityTable: "attachments", entityId: attachment.id, operation: "delete" }),
+    );
   });
 });
