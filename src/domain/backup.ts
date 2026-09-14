@@ -59,13 +59,13 @@ const TABLE_KEYS = [
 // these come back as ISO strings from JSON.parse and must be converted
 // back to real Date objects before the repository layer can insert them.
 const DATE_FIELDS: Record<(typeof TABLE_KEYS)[number], string[]> = {
-  semesters: ["createdAt", "closedAt"],
+  semesters: ["createdAt", "closedAt", "updatedAt"],
   subjects: ["createdAt", "updatedAt"],
   tasks: ["dueDateTime", "completedAt", "createdAt", "updatedAt"],
-  subtasks: [],
-  reminders: ["fixedDateTime", "computedFireAt", "createdAt"],
-  attachments: ["createdAt"],
-  settings: ["createdAt", "updatedAt"],
+  subtasks: ["createdAt", "updatedAt"],
+  reminders: ["fixedDateTime", "computedFireAt", "createdAt", "updatedAt"],
+  attachments: ["createdAt", "updatedAt", "syncedAt"],
+  settings: ["createdAt", "updatedAt", "lastSyncAt"],
 };
 
 function reviveDates(rows: unknown[], dateFields: string[]): unknown[] | null {

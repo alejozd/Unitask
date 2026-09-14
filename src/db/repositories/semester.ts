@@ -57,6 +57,7 @@ export async function createSemester(
     label,
     status: "active",
     createdAt: now,
+    updatedAt: null,
   };
 
   // Cancel the reminders of every semester about to be auto-closed BEFORE
@@ -76,14 +77,14 @@ export async function createSemester(
   await database.transaction((tx) => {
     for (const id of plan.semesterIdsToClose) {
       tx.update(semesters)
-        .set({ status: "closed", closedAt: now })
+        .set({ status: "closed", closedAt: now, updatedAt: now })
         .where(eq(semesters.id, id))
         .run();
     }
     tx.insert(semesters).values(newSemester).run();
   });
 
-  return { ...newSemester, closedAt: null };
+  return { ...newSemester, closedAt: null, updatedAt: null };
 }
 
 export async function closeSemester(id: string, database: Database = defaultDb): Promise<void> {

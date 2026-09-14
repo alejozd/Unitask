@@ -9,6 +9,7 @@ function fixtureTables(): BackupTables {
         status: "active",
         createdAt: new Date("2026-01-01T00:00:00.000Z"),
         closedAt: null,
+        updatedAt: new Date("2026-01-01T00:00:00.000Z"),
       },
     ],
     subjects: [
@@ -38,7 +39,17 @@ function fixtureTables(): BackupTables {
         updatedAt: new Date("2026-01-03T00:00:00.000Z"),
       },
     ],
-    subtasks: [{ id: "subtask-1", taskId: "task-1", text: "Paso 1", completed: false, order: 0 }],
+    subtasks: [
+      {
+        id: "subtask-1",
+        taskId: "task-1",
+        text: "Paso 1",
+        completed: false,
+        order: 0,
+        createdAt: new Date("2026-01-03T00:00:00.000Z"),
+        updatedAt: new Date("2026-01-03T00:00:00.000Z"),
+      },
+    ],
     reminders: [
       {
         id: "rem-1",
@@ -50,6 +61,7 @@ function fixtureTables(): BackupTables {
         computedFireAt: new Date("2026-01-31T12:00:00.000Z"),
         notificationId: "notif-1",
         createdAt: new Date("2026-01-03T00:00:00.000Z"),
+        updatedAt: new Date("2026-01-03T00:00:00.000Z"),
       },
     ],
     attachments: [
@@ -61,6 +73,8 @@ function fixtureTables(): BackupTables {
         mimeType: "application/pdf",
         sizeBytes: 1024,
         createdAt: new Date("2026-01-03T00:00:00.000Z"),
+        updatedAt: new Date("2026-01-03T00:00:00.000Z"),
+        syncedAt: null,
       },
     ],
     settings: [
@@ -70,6 +84,9 @@ function fixtureTables(): BackupTables {
         fullName: null,
         createdAt: new Date("2026-01-01T00:00:00.000Z"),
         updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+        syncEmail: null,
+        syncCursor: null,
+        lastSyncAt: null,
       },
     ],
   };

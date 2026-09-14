@@ -90,6 +90,8 @@ describe("exportBackupJson", () => {
       mimeType: "application/pdf",
       sizeBytes: 100,
       createdAt: new Date(),
+      updatedAt: new Date(),
+      syncedAt: null,
     });
     await db.insert(settings).values({
       id: "settings-1",
@@ -97,6 +99,9 @@ describe("exportBackupJson", () => {
       fullName: null,
       createdAt: new Date(),
       updatedAt: new Date(),
+      syncEmail: null,
+      syncCursor: null,
+      lastSyncAt: null,
     });
 
     const json = await exportBackupJson(db);
@@ -127,6 +132,7 @@ describe("importBackup", () => {
       status: "active",
       createdAt: new Date(),
       closedAt: null,
+      updatedAt: null,
     });
 
     await importBackup(tables, db);
@@ -173,6 +179,7 @@ describe("importBackup", () => {
       status: "active",
       createdAt: new Date(),
       closedAt: null,
+      updatedAt: null,
     });
     tables.subjects.push({
       id: "sub-1",
@@ -207,6 +214,7 @@ describe("importBackup", () => {
       computedFireAt: new Date(Date.now() + 86_400_000),
       notificationId: "stale-notification-id-from-old-device",
       createdAt: new Date(),
+      updatedAt: new Date(),
     });
 
     const result = await importBackup(tables, db);
@@ -226,6 +234,7 @@ describe("importBackup", () => {
       status: "active",
       createdAt: new Date(),
       closedAt: null,
+      updatedAt: null,
     });
     tables.subjects.push({
       id: "sub-1",
@@ -260,6 +269,7 @@ describe("importBackup", () => {
       computedFireAt: new Date(Date.now() - 2 * 86_400_000),
       notificationId: null,
       createdAt: new Date(),
+      updatedAt: new Date(),
     });
 
     const result = await importBackup(tables, db);
@@ -281,6 +291,7 @@ describe("importBackup", () => {
       status: "active",
       createdAt: new Date(),
       closedAt: null,
+      updatedAt: null,
     });
     tables.subjects.push({
       id: "sub-1",
@@ -315,6 +326,7 @@ describe("importBackup", () => {
       computedFireAt: new Date(Date.now() + 86_400_000),
       notificationId: null,
       createdAt: new Date(),
+      updatedAt: new Date(),
     });
 
     const result = await importBackup(tables, db);
@@ -333,6 +345,7 @@ describe("importBackup", () => {
       status: "closed",
       createdAt: new Date(),
       closedAt: new Date(),
+      updatedAt: new Date(),
     });
     tables.subjects.push({
       id: "sub-1",
