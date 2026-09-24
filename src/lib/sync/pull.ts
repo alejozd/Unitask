@@ -89,14 +89,23 @@ async function applyAttachmentSideEffects(entityId: string, database: Database):
   const accessToken = getAccessToken();
   if (!accessToken) return; // shouldn't happen mid-pull, but never crash the pull over one file
 
-  const { storedPath } = await saveDownloadedAttachment(
-    attachment.taskId,
-    attachment.id,
-    attachment.originalFileName,
-    `${SYNC_API_BASE_URL}/sync/attachments/${attachment.id}`,
-    accessToken,
-  );
-  await database.update(attachments).set({ storedPath }).where(eq(attachments.id, entityId));
+  try {
+    const { storedPath } = await saveDownloadedAttachment(
+      attachment.taskId,
+      attachment.id,
+      attachment.originalFileName,
+      `${SYNC_API_BASE_URL}/sync/attachments/${attachment.id}`,
+      accessToken,
+    );
+    await database.update(attachments).set({ storedPath }).where(eq(attachments.id, entityId));
+  } catch {
+    // Best-effort, same philosophy as push.ts's uploadPendingAttachmentFiles:
+    // one attachment's file being unavailable (a 404 — e.g. the source
+    // device's own upload never actually succeeded — or a network hiccup)
+    // must never abort the whole pull. The row's storedPath is left as
+    // whatever the payload set it to; the local file simply doesn't exist
+    // yet, and the next pull retries the same download attempt.
+  }
 }
 
 export async function pullChanges(database: Database = defaultDb): Promise<PullSummary> {

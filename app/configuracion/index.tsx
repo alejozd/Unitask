@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { router } from "expo-router";
 import {
+  ActivityIndicator,
   Alert,
   ScrollView,
   StyleSheet,
@@ -316,9 +317,11 @@ export default function ConfiguracionScreen() {
                   onPress={handleSyncNow}
                   disabled={syncing}
                 >
-                  <Text style={styles.secondaryButtonText}>
-                    {syncing ? "Sincronizando…" : "Sincronizar ahora"}
-                  </Text>
+                  {syncing ? (
+                    <ActivityIndicator color={colors.primary} />
+                  ) : (
+                    <Text style={styles.secondaryButtonText}>Sincronizar ahora</Text>
+                  )}
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.secondaryButton, syncing && styles.saveButtonDisabled]}
@@ -368,14 +371,22 @@ export default function ConfiguracionScreen() {
                   onPress={() => handleSyncAuth("login")}
                   disabled={syncing}
                 >
-                  <Text style={styles.secondaryButtonText}>Iniciar sesión</Text>
+                  {syncing ? (
+                    <ActivityIndicator color={colors.primary} />
+                  ) : (
+                    <Text style={styles.secondaryButtonText}>Iniciar sesión</Text>
+                  )}
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.secondaryButton, syncing && styles.saveButtonDisabled]}
                   onPress={() => handleSyncAuth("register")}
                   disabled={syncing}
                 >
-                  <Text style={styles.secondaryButtonText}>Crear cuenta</Text>
+                  {syncing ? (
+                    <ActivityIndicator color={colors.primary} />
+                  ) : (
+                    <Text style={styles.secondaryButtonText}>Crear cuenta</Text>
+                  )}
                 </TouchableOpacity>
               </>
             )}

@@ -396,4 +396,96 @@ describe("pullChanges", () => {
     const rows = await db.select().from(attachments).where(eq(attachments.id, "att-1"));
     expect(rows[0].storedPath).toBe("/local/att.pdf");
   });
+
+  it("does not abort the whole sync when one attachment's file 404s (never actually uploaded)", async () => {
+    const { saveDownloadedAttachment } = jest.requireMock("@/lib/files");
+    (saveDownloadedAttachment as jest.Mock).mockRejectedValueOnce(
+      new Error(
+        "Call to function 'FileSystemDownloadTask.start' has been rejected. Caused by: Unable to download a file: HTTP 404",
+      ),
+    );
+    const db = freshTestDb();
+    await db
+      .insert(semesters)
+      .values({ id: "sem-6", label: "s", status: "active", createdAt: new Date() });
+    await db.insert(subjects).values({
+      id: "subj-4",
+      name: "Historia",
+      courseCode: null,
+      professorName: null,
+      color: "indigo",
+      semesterId: "sem-6",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    await db.insert(tasks).values({
+      id: "task-4",
+      title: "T",
+      description: null,
+      subjectId: "subj-4",
+      dueDateTime: new Date(),
+      priority: "Baja",
+      completed: false,
+      completedAt: null,
+      completedLate: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    (authenticatedFetch as jest.Mock).mockResolvedValueOnce(
+      jsonResponse({
+        operations: [
+          {
+            table: "attachments",
+            entityId: "att-orphaned",
+            operation: "upsert",
+            payload: {
+              id: "att-orphaned",
+              taskId: "task-4",
+              originalFileName: "notes.pdf",
+              storedPath: "/remote/notes.pdf",
+              mimeType: "application/pdf",
+              sizeBytes: 10,
+              createdAt: "2026-01-01T00:00:00.000Z",
+              updatedAt: "2026-01-01T00:00:00.000Z",
+              syncedAt: null,
+            },
+            clientUpdatedAt: 1,
+          },
+          {
+            table: "semesters",
+            entityId: "sem-after",
+            operation: "upsert",
+            payload: {
+              id: "sem-after",
+              label: "Después",
+              status: "active",
+              createdAt: "2026-01-01T00:00:00.000Z",
+              closedAt: null,
+              updatedAt: "2026-01-01T00:00:00.000Z",
+            },
+            clientUpdatedAt: 2,
+          },
+        ],
+        cursor: 7,
+      }),
+    );
+    (authenticatedFetch as jest.Mock).mockResolvedValueOnce(
+      jsonResponse({ operations: [], cursor: 7 }),
+    );
+
+    const result = await pullChanges(db);
+
+    // Both operations in the page still got applied — the failed download
+    // didn't abort the loop — and the cursor still advanced (no infinite
+    // retry of the same page on every future sync).
+    expect(result).toEqual({ applied: 2 });
+    const semesterRows = await db.select().from(semesters).where(eq(semesters.id, "sem-after"));
+    expect(semesterRows).toHaveLength(1);
+    const attachmentRows = await db
+      .select()
+      .from(attachments)
+      .where(eq(attachments.id, "att-orphaned"));
+    expect(attachmentRows).toHaveLength(1);
+    expect(await getSyncCursor(db)).toBe(7);
+  });
 });
