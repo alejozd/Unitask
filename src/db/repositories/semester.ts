@@ -1,5 +1,5 @@
 import { randomUUID } from "expo-crypto";
-import { desc, eq, sql } from "drizzle-orm";
+import { desc, eq, ne, sql } from "drizzle-orm";
 import type { BaseSQLiteDatabase } from "drizzle-orm/sqlite-core";
 
 import { db as defaultDb } from "@/db/client";
@@ -104,6 +104,48 @@ export async function closeSemester(id: string, database: Database = defaultDb):
     .update(semesters)
     .set({ status: "closed", closedAt: new Date(), updatedAt: new Date() })
     .where(eq(semesters.id, id));
+  await enqueueChange("semesters", id, "upsert", database);
+}
+
+/**
+ * Reopens a closed semester, auto-closing whatever semester is currently
+ * active in the same operation (03-business-rules.md §10 — at most one
+ * active semester at a time). This is how a user recovers a semester that
+ * reconciliation (or a manual close) shut down by mistake: reactivating it
+ * doesn't require closing the current one first.
+ */
+export async function reactivateSemester(
+  id: string,
+  database: Database = defaultDb,
+): Promise<void> {
+  const others = await database
+    .select({ id: semesters.id, status: semesters.status })
+    .from(semesters)
+    .where(ne(semesters.id, id));
+  const plan = planSemesterCreation(others);
+
+  // Must run before the status update below — see cancelRemindersForSemester's note.
+  for (const closeId of plan.semesterIdsToClose) {
+    await cancelRemindersForSemester(closeId, database);
+  }
+
+  const now = new Date();
+  await database.transaction((tx) => {
+    for (const closeId of plan.semesterIdsToClose) {
+      tx.update(semesters)
+        .set({ status: "closed", closedAt: now, updatedAt: now })
+        .where(eq(semesters.id, closeId))
+        .run();
+    }
+    tx.update(semesters)
+      .set({ status: "active", closedAt: null, updatedAt: now })
+      .where(eq(semesters.id, id))
+      .run();
+  });
+
+  for (const closeId of plan.semesterIdsToClose) {
+    await enqueueChange("semesters", closeId, "upsert", database);
+  }
   await enqueueChange("semesters", id, "upsert", database);
 }
 

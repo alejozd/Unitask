@@ -5,7 +5,7 @@ import { Alert, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } 
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { db } from "@/db/client";
-import { closeSemester, createSemester } from "@/db/repositories/semester";
+import { closeSemester, createSemester, reactivateSemester } from "@/db/repositories/semester";
 import { semesters } from "@/db/schema/semester";
 import { colors } from "@/theme";
 import { desc } from "drizzle-orm";
@@ -60,6 +60,33 @@ export default function SemestresScreen() {
     );
   }
 
+  function handleReactivatePress(id: string) {
+    const activeSemester = (semesterList ?? []).find((s) => s.status === "active");
+
+    Alert.alert(
+      "Reactivar semestre",
+      activeSemester
+        ? `Este semestre volverá a estar activo. "${activeSemester.label}" pasará a cerrarse (solo lectura).`
+        : "Este semestre volverá a estar activo.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Reactivar",
+          onPress: async () => {
+            setBusy(true);
+            try {
+              await reactivateSemester(id);
+            } catch {
+              Alert.alert("Error", "No se pudo reactivar el semestre.");
+            } finally {
+              setBusy(false);
+            }
+          },
+        },
+      ],
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
@@ -88,7 +115,15 @@ export default function SemestresScreen() {
               >
                 <Text style={styles.closeButtonText}>Cerrar</Text>
               </TouchableOpacity>
-            ) : null}
+            ) : (
+              <TouchableOpacity
+                style={styles.reactivateButton}
+                onPress={() => handleReactivatePress(item.id)}
+                disabled={busy}
+              >
+                <Text style={styles.reactivateButtonText}>Reactivar</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
       />
@@ -137,6 +172,14 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   closeButtonText: { color: colors.danger, fontSize: 13, fontWeight: "600" },
+  reactivateButton: {
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  reactivateButtonText: { color: colors.primary, fontSize: 13, fontWeight: "600" },
   newSemesterRow: { flexDirection: "row", gap: 8, marginTop: 12 },
   input: {
     flex: 1,

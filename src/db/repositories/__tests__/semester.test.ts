@@ -9,6 +9,7 @@ import {
   createSemester,
   getActiveSemester,
   listSemestersQuery,
+  reactivateSemester,
   reconcileActiveSemesters,
 } from "@/db/repositories/semester";
 import { addReminder } from "@/db/repositories/reminder";
@@ -85,6 +86,51 @@ describe("semester repository", () => {
     const closed = all.find((s) => s.id === semester.id);
     expect(closed?.status).toBe("closed");
     expect(closed?.closedAt).not.toBeNull();
+  });
+
+  it("reactivateSemester sets a closed semester back to active and clears closedAt", async () => {
+    const db = freshTestDb();
+    const semester = await createSemester("2026-1", db);
+    await closeSemester(semester.id, db);
+
+    await reactivateSemester(semester.id, db);
+
+    const all = await listSemestersQuery(db);
+    const reactivated = all.find((s) => s.id === semester.id);
+    expect(reactivated?.status).toBe("active");
+    expect(reactivated?.closedAt).toBeNull();
+  });
+
+  it("reactivateSemester auto-closes whatever semester is currently active (03-business-rules.md §10)", async () => {
+    const db = freshTestDb();
+    const first = await createSemester("2026-1", db);
+    await closeSemester(first.id, db);
+    const second = await createSemester("2026-2", db);
+
+    await reactivateSemester(first.id, db);
+
+    const all = await listSemestersQuery(db);
+    const firstAfter = all.find((s) => s.id === first.id);
+    const secondAfter = all.find((s) => s.id === second.id);
+    expect(firstAfter?.status).toBe("active");
+    expect(secondAfter?.status).toBe("closed");
+    expect(secondAfter?.closedAt).not.toBeNull();
+
+    const active = await getActiveSemester(db);
+    expect(active?.id).toBe(first.id);
+  });
+
+  it("reactivateSemester enqueues an upsert for both the reactivated semester and the one it closes", async () => {
+    const db = freshTestDb();
+    const first = await createSemester("2026-1", db);
+    await closeSemester(first.id, db);
+    const second = await createSemester("2026-2", db);
+
+    await reactivateSemester(first.id, db);
+
+    const pending = await getPendingChanges(db);
+    const keys = pending.filter((p) => p.entityTable === "semesters").map((p) => p.entityId);
+    expect(keys).toEqual(expect.arrayContaining([first.id, second.id]));
   });
 
   it("getActiveSemester returns undefined when no semester exists yet", async () => {
