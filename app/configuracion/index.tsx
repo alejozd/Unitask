@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import * as Sharing from "expo-sharing";
 import * as IntentLauncher from "expo-intent-launcher";
@@ -32,6 +33,7 @@ export default function ConfiguracionScreen() {
   const [importing, setImporting] = useState(false);
   const [syncEmail, setSyncEmail] = useState("");
   const [syncPassword, setSyncPassword] = useState("");
+  const [showSyncPassword, setShowSyncPassword] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncLoggedIn, setSyncLoggedIn] = useState(() => isLoggedIn());
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
@@ -331,14 +333,27 @@ export default function ConfiguracionScreen() {
                   autoCapitalize="none"
                   keyboardType="email-address"
                 />
-                <TextInput
-                  style={styles.input}
-                  value={syncPassword}
-                  onChangeText={setSyncPassword}
-                  placeholder="Contraseña"
-                  placeholderTextColor={colors.textMuted}
-                  secureTextEntry
-                />
+                <View style={styles.passwordFieldWrapper}>
+                  <TextInput
+                    style={[styles.input, styles.passwordInput]}
+                    value={syncPassword}
+                    onChangeText={setSyncPassword}
+                    placeholder="Contraseña"
+                    placeholderTextColor={colors.textMuted}
+                    secureTextEntry={!showSyncPassword}
+                  />
+                  <TouchableOpacity
+                    style={styles.eyeButton}
+                    onPress={() => setShowSyncPassword((prev) => !prev)}
+                    hitSlop={8}
+                  >
+                    <Ionicons
+                      name={showSyncPassword ? "eye-off-outline" : "eye-outline"}
+                      size={20}
+                      color={colors.textMuted}
+                    />
+                  </TouchableOpacity>
+                </View>
                 <TouchableOpacity
                   style={[styles.secondaryButton, syncing && styles.saveButtonDisabled]}
                   onPress={() => handleSyncAuth("login")}
@@ -406,6 +421,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 16,
+    // Explicit color + backgroundColor — without both set, Android's
+    // "Forzar oscuro" (Force dark) system feature can repaint a masked
+    // password field's dot glyph to match its own repainted background,
+    // making typed characters invisible even though the same style's
+    // plain-text fields (nickname/email) render fine. Setting both here
+    // opts every input using this style out of that repainting.
+    color: colors.text,
+    backgroundColor: colors.surface,
+  },
+  passwordFieldWrapper: {
+    justifyContent: "center",
+  },
+  passwordInput: {
+    paddingRight: 44,
+  },
+  eyeButton: {
+    position: "absolute",
+    right: 12,
   },
   saveButton: {
     backgroundColor: colors.primary,
