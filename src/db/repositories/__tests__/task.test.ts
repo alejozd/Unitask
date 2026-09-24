@@ -545,6 +545,36 @@ describe("task repository — sync outbox", () => {
     expect(subtaskPending[0].operation).toBe("upsert");
   });
 
+  it("createTask with a reminder enqueues the task's own outbox entry before the reminder's", async () => {
+    // Regression test for a real on-device bug: pushChanges drains sync_log
+    // in insertion order (getPendingChanges has no ORDER BY), and a pulling
+    // device applies operations in that same server-assigned order. If the
+    // reminder's entry were enqueued first, a second device pulling this
+    // batch would try to insert the reminder before its own task exists
+    // locally, violating reminders.taskId's foreign key — reproduced
+    // end-to-end in src/lib/sync/__tests__/cross-device-ordering.test.ts.
+    const db = freshTestDb();
+    const { subjectId } = await seedActiveSemesterWithSubject(db);
+
+    const { task } = await createTask(
+      {
+        title: "Con recordatorio",
+        subjectId,
+        dueDateTime: future,
+        priority: "Media",
+        reminderSpecs: [{ kind: "relative", offsetValue: 1, offsetUnit: "days" }],
+      },
+      db,
+    );
+
+    const pending = await getPendingChanges(db);
+    const taskIndex = pending.findIndex((p) => p.entityTable === "tasks" && p.entityId === task.id);
+    const reminderIndex = pending.findIndex((p) => p.entityTable === "reminders");
+    expect(taskIndex).toBeGreaterThanOrEqual(0);
+    expect(reminderIndex).toBeGreaterThanOrEqual(0);
+    expect(taskIndex).toBeLessThan(reminderIndex);
+  });
+
   it("updateTask enqueues a tasks upsert", async () => {
     const db = freshTestDb();
     const { subjectId } = await seedActiveSemesterWithSubject(db);

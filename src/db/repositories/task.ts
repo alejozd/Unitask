@@ -84,6 +84,20 @@ export async function createTask(
     }
   });
 
+  // Must be enqueued BEFORE addReminder() below, not after: addReminder
+  // enqueues its own "reminders" upsert immediately, and the sync outbox is
+  // drained in insertion order. A device pulling these back applies
+  // operations in that same order — if a reminder's row got a lower
+  // server sequence number than its own task's row, the pulling device
+  // would try to insert the reminder before the task exists locally,
+  // violating the reminders.taskId foreign key. Enqueuing the task (and its
+  // subtasks, which have the same constraint) first guarantees the task
+  // always arrives no later than any reminder or subtask created alongside it.
+  await enqueueChange("tasks", newTask.id, "upsert", database);
+  for (const subtask of newSubtasks) {
+    await enqueueChange("subtasks", subtask.id, "upsert", database);
+  }
+
   let remindersUnscheduled = 0;
   for (const spec of input.reminderSpecs ?? []) {
     const reminder = await addReminder(newTask.id, spec, database);
@@ -109,11 +123,6 @@ export async function createTask(
         subjectName: subjectRows[0]?.name ?? "",
       });
     }
-  }
-
-  await enqueueChange("tasks", newTask.id, "upsert", database);
-  for (const subtask of newSubtasks) {
-    await enqueueChange("subtasks", subtask.id, "upsert", database);
   }
 
   return { task: newTask as Task, remindersUnscheduled };
