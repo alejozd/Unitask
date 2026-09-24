@@ -5,7 +5,13 @@ import { Alert, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } 
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { db } from "@/db/client";
-import { closeSemester, createSemester, reactivateSemester } from "@/db/repositories/semester";
+import {
+  closeSemester,
+  createSemester,
+  deleteSemester,
+  reactivateSemester,
+  SemesterHasSubjectsError,
+} from "@/db/repositories/semester";
 import { semesters } from "@/db/schema/semester";
 import { colors } from "@/theme";
 import { desc } from "drizzle-orm";
@@ -87,6 +93,35 @@ export default function SemestresScreen() {
     );
   }
 
+  function handleDeletePress(id: string, label: string) {
+    Alert.alert(
+      "Eliminar semestre",
+      `"${label}" se eliminará permanentemente. Esta acción no se puede deshacer.`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Eliminar",
+          style: "destructive",
+          onPress: async () => {
+            setBusy(true);
+            try {
+              await deleteSemester(id);
+            } catch (error) {
+              Alert.alert(
+                "Error",
+                error instanceof SemesterHasSubjectsError
+                  ? error.message
+                  : "No se pudo eliminar el semestre.",
+              );
+            } finally {
+              setBusy(false);
+            }
+          },
+        },
+      ],
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
@@ -107,23 +142,32 @@ export default function SemestresScreen() {
                 {item.status === "active" ? "Activo" : "Cerrado"}
               </Text>
             </View>
-            {item.status === "active" ? (
+            <View style={styles.cardActions}>
+              {item.status === "active" ? (
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={() => handleClosePress(item.id)}
+                  disabled={busy}
+                >
+                  <Text style={styles.closeButtonText}>Cerrar</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={styles.reactivateButton}
+                  onPress={() => handleReactivatePress(item.id)}
+                  disabled={busy}
+                >
+                  <Text style={styles.reactivateButtonText}>Reactivar</Text>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => handleClosePress(item.id)}
+                style={styles.deleteButton}
+                onPress={() => handleDeletePress(item.id, item.label)}
                 disabled={busy}
               >
-                <Text style={styles.closeButtonText}>Cerrar</Text>
+                <Text style={styles.deleteButtonText}>Eliminar</Text>
               </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={styles.reactivateButton}
-                onPress={() => handleReactivatePress(item.id)}
-                disabled={busy}
-              >
-                <Text style={styles.reactivateButtonText}>Reactivar</Text>
-              </TouchableOpacity>
-            )}
+            </View>
           </View>
         )}
       />
@@ -172,6 +216,15 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   closeButtonText: { color: colors.danger, fontSize: 13, fontWeight: "600" },
+  cardActions: { flexDirection: "row", gap: 8 },
+  deleteButton: {
+    borderWidth: 1,
+    borderColor: colors.textMuted,
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  deleteButtonText: { color: colors.textMuted, fontSize: 13, fontWeight: "600" },
   reactivateButton: {
     borderWidth: 1,
     borderColor: colors.primary,

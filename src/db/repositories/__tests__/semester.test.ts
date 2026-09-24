@@ -7,10 +7,12 @@ import * as schema from "@/db/schema";
 import {
   closeSemester,
   createSemester,
+  deleteSemester,
   getActiveSemester,
   listSemestersQuery,
   reactivateSemester,
   reconcileActiveSemesters,
+  SemesterHasSubjectsError,
 } from "@/db/repositories/semester";
 import { addReminder } from "@/db/repositories/reminder";
 import { createTask } from "@/db/repositories/task";
@@ -253,6 +255,68 @@ describe("semester repository — sync outbox", () => {
         entityTable: "semesters",
         entityId: semester.id,
         operation: "upsert",
+      }),
+    );
+  });
+});
+
+describe("deleteSemester", () => {
+  it("deletes an empty semester (no subjects)", async () => {
+    const db = freshTestDb();
+    const semester = await createSemester("2026-1", db);
+
+    await deleteSemester(semester.id, db);
+
+    const all = await listSemestersQuery(db);
+    expect(all.find((s) => s.id === semester.id)).toBeUndefined();
+  });
+
+  it("deletes an empty closed semester too", async () => {
+    const db = freshTestDb();
+    const semester = await createSemester("2026-1", db);
+    await closeSemester(semester.id, db);
+
+    await deleteSemester(semester.id, db);
+
+    const all = await listSemestersQuery(db);
+    expect(all.find((s) => s.id === semester.id)).toBeUndefined();
+  });
+
+  it("throws SemesterHasSubjectsError and refuses to delete when the semester has subjects", async () => {
+    const db = freshTestDb();
+    const semester = await createSemester("2026-1", db);
+    await db.insert(subjects).values({
+      id: "subj-1",
+      name: "Cálculo II",
+      color: "indigo",
+      semesterId: semester.id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    await expect(deleteSemester(semester.id, db)).rejects.toThrow(SemesterHasSubjectsError);
+
+    const all = await listSemestersQuery(db);
+    expect(all.find((s) => s.id === semester.id)).toBeDefined();
+  });
+
+  it("throws when the semester doesn't exist", async () => {
+    const db = freshTestDb();
+    await expect(deleteSemester("nonexistent", db)).rejects.toThrow();
+  });
+
+  it("enqueues a delete for the removed semester", async () => {
+    const db = freshTestDb();
+    const semester = await createSemester("2026-1", db);
+
+    await deleteSemester(semester.id, db);
+
+    const pending = await getPendingChanges(db);
+    expect(pending).toContainEqual(
+      expect.objectContaining({
+        entityTable: "semesters",
+        entityId: semester.id,
+        operation: "delete",
       }),
     );
   });

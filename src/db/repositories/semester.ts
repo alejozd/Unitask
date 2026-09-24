@@ -149,6 +149,41 @@ export async function reactivateSemester(
   await enqueueChange("semesters", id, "upsert", database);
 }
 
+export class SemesterHasSubjectsError extends Error {
+  constructor(public subjectCount: number) {
+    super(`No se puede eliminar: el semestre tiene ${subjectCount} materia(s) registrada(s).`);
+    this.name = "SemesterHasSubjectsError";
+  }
+}
+
+/**
+ * Permanently removes a semester — unlike closeSemester, this isn't
+ * reversible via reactivateSemester. Only allowed on an empty semester
+ * (zero subjects): this is meant for recovering from a mistaken creation
+ * (e.g. a typo'd label during onboarding), not for discarding real data —
+ * a semester with any subjects should be closed instead, which preserves
+ * everything underneath as read-only per 03-business-rules.md §11.
+ */
+export async function deleteSemester(id: string, database: Database = defaultDb): Promise<void> {
+  const rows = await database
+    .select({ id: semesters.id })
+    .from(semesters)
+    .where(eq(semesters.id, id))
+    .limit(1);
+  if (!rows[0]) throw new Error(`Semester not found: ${id}`);
+
+  const subjectRows = await database
+    .select({ id: subjects.id })
+    .from(subjects)
+    .where(eq(subjects.semesterId, id));
+  if (subjectRows.length > 0) {
+    throw new SemesterHasSubjectsError(subjectRows.length);
+  }
+
+  await database.delete(semesters).where(eq(semesters.id, id));
+  await enqueueChange("semesters", id, "delete", database);
+}
+
 export interface ReconcileActiveSemestersResult {
   closedSemesterIds: string[];
 }
