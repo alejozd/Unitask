@@ -21,7 +21,7 @@ import Constants from "expo-constants";
 import { getProfile, saveProfile } from "@/db/repositories/settings";
 import { exportBackupJson, importBackup } from "@/db/repositories/backup";
 import { parseBackupFile, type BackupTables } from "@/domain/backup";
-import { register, login, logout, isLoggedIn } from "@/lib/sync/client";
+import { register, login, logout, isLoggedIn, restoreSession } from "@/lib/sync/client";
 import { runSync, enqueueEverythingForInitialPush, SyncNotConfiguredError } from "@/lib/sync";
 import { colors } from "@/theme";
 
@@ -53,6 +53,23 @@ export default function ConfiguracionScreen() {
       setNickname(profile.nickname ?? "");
       setFullName(profile.fullName ?? "");
       setLoaded(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    // `isLoggedIn()` only reflects the in-memory access token, which starts
+    // out empty on every fresh app process — the refresh token in
+    // SecureStore is what actually survives across app restarts/screen
+    // visits. Without this, the screen shows the login form even when the
+    // session is really still valid, forcing the user to re-enter their
+    // credentials every time.
+    if (isLoggedIn()) return;
+    let cancelled = false;
+    restoreSession().then((restored) => {
+      if (!cancelled && restored) setSyncLoggedIn(true);
     });
     return () => {
       cancelled = true;
