@@ -19,9 +19,13 @@ jest.mock("../push", () => ({
 }));
 jest.mock("../pull", () => ({ pullChanges: jest.fn().mockResolvedValue({ applied: 0 }) }));
 jest.mock("../client", () => ({ isLoggedIn: jest.fn(), restoreSession: jest.fn() }));
+jest.mock("@/db/repositories/semester", () => ({
+  reconcileActiveSemesters: jest.fn().mockResolvedValue({ closedSemesterIds: [] }),
+}));
 import { pushChanges } from "../push";
 import { pullChanges } from "../pull";
 import { isLoggedIn, restoreSession } from "../client";
+import { reconcileActiveSemesters } from "@/db/repositories/semester";
 
 function freshTestDb() {
   const sqlite = new Database(":memory:");
@@ -48,6 +52,18 @@ describe("runSync", () => {
     const pushOrder = (pushChanges as jest.Mock).mock.invocationCallOrder[0];
     const pullOrder = (pullChanges as jest.Mock).mock.invocationCallOrder[0];
     expect(pushOrder).toBeLessThan(pullOrder);
+  });
+
+  it("reconciles active semesters after pulling, since a pull is what can introduce a duplicate", async () => {
+    const db = freshTestDb();
+    (isLoggedIn as jest.Mock).mockReturnValue(true);
+
+    await runSync(db);
+
+    expect(reconcileActiveSemesters).toHaveBeenCalledWith(db);
+    const pullOrder = (pullChanges as jest.Mock).mock.invocationCallOrder[0];
+    const reconcileOrder = (reconcileActiveSemesters as jest.Mock).mock.invocationCallOrder[0];
+    expect(pullOrder).toBeLessThan(reconcileOrder);
   });
 
   it("tries restoreSession when no in-memory session exists, then proceeds if it succeeds", async () => {

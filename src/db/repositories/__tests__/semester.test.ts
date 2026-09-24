@@ -9,11 +9,13 @@ import {
   createSemester,
   getActiveSemester,
   listSemestersQuery,
+  reconcileActiveSemesters,
 } from "@/db/repositories/semester";
 import { addReminder } from "@/db/repositories/reminder";
 import { createTask } from "@/db/repositories/task";
 import { getPendingChanges } from "@/lib/sync/queue";
 import { reminders } from "@/db/schema/reminder";
+import { semesters } from "@/db/schema/semester";
 import { subjects } from "@/db/schema/subject";
 import * as notifications from "@/lib/notifications";
 
@@ -204,6 +206,127 @@ describe("semester repository — sync outbox", () => {
       expect.objectContaining({
         entityTable: "semesters",
         entityId: semester.id,
+        operation: "upsert",
+      }),
+    );
+  });
+});
+
+describe("reconcileActiveSemesters", () => {
+  // Reproduces a real on-device bug: two devices each did their own
+  // onboarding (creating their own "active" semester) before ever linking
+  // to the same sync account. Pulling the other device's semester leaves
+  // two rows simultaneously active locally, breaking 03-business-rules.md
+  // §10 and (via getActiveSemester's undeterministic LIMIT 1) silently
+  // hiding whichever semester's data the app happens not to pick.
+  it("does nothing when at most one semester is active", async () => {
+    const db = freshTestDb();
+    await createSemester("2026-1", db);
+
+    const result = await reconcileActiveSemesters(db);
+
+    expect(result.closedSemesterIds).toEqual([]);
+    expect((await getActiveSemester(db))?.status).toBe("active");
+  });
+
+  it("closes the older of two independently-created active semesters, keeping the newer one active", async () => {
+    const db = freshTestDb();
+    await db.insert(semesters).values({
+      id: "sem-older",
+      label: "2026-1 (dispositivo A)",
+      status: "active",
+      createdAt: new Date(1000),
+      updatedAt: null,
+    });
+    await db.insert(semesters).values({
+      id: "sem-newer",
+      label: "2026-1 (dispositivo B)",
+      status: "active",
+      createdAt: new Date(2000),
+      updatedAt: null,
+    });
+
+    const result = await reconcileActiveSemesters(db);
+
+    expect(result.closedSemesterIds).toEqual(["sem-older"]);
+    const rows = await db.select().from(semesters);
+    const older = rows.find((s) => s.id === "sem-older");
+    const newer = rows.find((s) => s.id === "sem-newer");
+    expect(older?.status).toBe("closed");
+    expect(older?.closedAt).not.toBeNull();
+    expect(newer?.status).toBe("active");
+  });
+
+  it("cancels pending reminders for tasks under the semester it closes", async () => {
+    const db = freshTestDb();
+    await db.insert(semesters).values({
+      id: "sem-older",
+      label: "Vieja",
+      status: "active",
+      createdAt: new Date(1000),
+      updatedAt: null,
+    });
+    await db.insert(semesters).values({
+      id: "sem-newer",
+      label: "Nueva",
+      status: "active",
+      createdAt: new Date(2000),
+      updatedAt: null,
+    });
+    const subjectId = "subj-1";
+    await db.insert(subjects).values({
+      id: subjectId,
+      name: "Cálculo II",
+      color: "indigo",
+      semesterId: "sem-older",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const dueDateTime = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
+    const { task } = await createTask(
+      { title: "Tarea", subjectId, dueDateTime, priority: "Media" },
+      db,
+    );
+    const reminder = await addReminder(
+      task.id,
+      { kind: "relative", offsetValue: 1, offsetUnit: "days" },
+      db,
+    );
+    expect(reminder.notificationId).not.toBeNull();
+
+    await reconcileActiveSemesters(db);
+
+    expect(mockedNotifications.cancelReminderNotification).toHaveBeenCalledWith(
+      reminder.notificationId,
+    );
+    const [row] = await db.select().from(reminders).where(eq(reminders.id, reminder.id));
+    expect(row.notificationId).toBeNull();
+  });
+
+  it("enqueues an upsert for the semester it closes, so the losing device eventually learns too", async () => {
+    const db = freshTestDb();
+    await db.insert(semesters).values({
+      id: "sem-older",
+      label: "Vieja",
+      status: "active",
+      createdAt: new Date(1000),
+      updatedAt: null,
+    });
+    await db.insert(semesters).values({
+      id: "sem-newer",
+      label: "Nueva",
+      status: "active",
+      createdAt: new Date(2000),
+      updatedAt: null,
+    });
+
+    await reconcileActiveSemesters(db);
+
+    const pending = await getPendingChanges(db);
+    expect(pending).toContainEqual(
+      expect.objectContaining({
+        entityTable: "semesters",
+        entityId: "sem-older",
         operation: "upsert",
       }),
     );

@@ -1,5 +1,5 @@
 import { db as defaultDb } from "@/db/client";
-import type { Database } from "@/db/repositories/semester";
+import { reconcileActiveSemesters, type Database } from "@/db/repositories/semester";
 import { semesters } from "@/db/schema/semester";
 import { subjects } from "@/db/schema/subject";
 import { tasks } from "@/db/schema/task";
@@ -36,6 +36,12 @@ export async function runSync(database: Database = defaultDb): Promise<SyncResul
 
   const pushResult = await pushChanges(database);
   const pullResult = await pullChanges(database);
+
+  // A pull is the only thing that can introduce a second "active" semester
+  // (each device may have created its own before ever linking accounts) —
+  // repair that invariant right after, so the app never shows the wrong
+  // device's semester as active for longer than one sync round.
+  await reconcileActiveSemesters(database);
 
   return { pushed: pushResult.pushed, rejected: pushResult.rejected, pulled: pullResult.applied };
 }

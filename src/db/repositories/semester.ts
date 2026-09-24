@@ -9,7 +9,10 @@ import { enqueueChange } from "@/lib/sync/queue";
 import { semesters, type Semester } from "@/db/schema/semester";
 import { subjects } from "@/db/schema/subject";
 import { tasks } from "@/db/schema/task";
-import { planSemesterCreation } from "@/domain/semester-lifecycle";
+import {
+  planActiveSemesterReconciliation,
+  planSemesterCreation,
+} from "@/domain/semester-lifecycle";
 
 /**
  * Driver-agnostic database type so repository functions can be exercised
@@ -102,6 +105,56 @@ export async function closeSemester(id: string, database: Database = defaultDb):
     .set({ status: "closed", closedAt: new Date(), updatedAt: new Date() })
     .where(eq(semesters.id, id));
   await enqueueChange("semesters", id, "upsert", database);
+}
+
+export interface ReconcileActiveSemestersResult {
+  closedSemesterIds: string[];
+}
+
+/**
+ * Repairs 03-business-rules.md §10's single-active-semester invariant
+ * after a sync pull may have violated it — each of two devices sharing one
+ * sync account can independently create its own "active" semester before
+ * ever linking, and pulling the other device's semester then leaves both
+ * simultaneously active locally. Deterministic (see
+ * planActiveSemesterReconciliation's own doc comment): every device
+ * reconciling the same already-synced data reaches the same decision, so
+ * this never needs to be driven by anything but the local pull itself —
+ * called from runSync() right after pullChanges completes.
+ */
+export async function reconcileActiveSemesters(
+  database: Database = defaultDb,
+): Promise<ReconcileActiveSemestersResult> {
+  const activeRows = await database
+    .select({
+      id: semesters.id,
+      status: semesters.status,
+      updatedAt: semesters.updatedAt,
+      createdAt: semesters.createdAt,
+    })
+    .from(semesters)
+    .where(eq(semesters.status, "active"));
+
+  const plan = planActiveSemesterReconciliation(activeRows);
+  if (plan.semesterIdsToClose.length === 0) {
+    return { closedSemesterIds: [] };
+  }
+
+  // Must run before the status update below — see cancelRemindersForSemester's note.
+  for (const id of plan.semesterIdsToClose) {
+    await cancelRemindersForSemester(id, database);
+  }
+
+  const now = new Date();
+  for (const id of plan.semesterIdsToClose) {
+    await database
+      .update(semesters)
+      .set({ status: "closed", closedAt: now, updatedAt: now })
+      .where(eq(semesters.id, id));
+    await enqueueChange("semesters", id, "upsert", database);
+  }
+
+  return { closedSemesterIds: plan.semesterIdsToClose };
 }
 
 export async function getActiveSemester(
