@@ -108,6 +108,35 @@ async function applyAttachmentSideEffects(entityId: string, database: Database):
   }
 }
 
+async function applyOperation(op: PulledOperation, database: Database): Promise<void> {
+  // Must be read BEFORE applying the operation — applyUpsert overwrites
+  // the row (including notificationId) with the incoming payload, and
+  // applyDelete removes it outright, so this is the only chance to know
+  // what OS notification (if any) needs cancelling.
+  let previousReminderNotificationId: string | null = null;
+  if (op.table === "reminders") {
+    const existing = await database
+      .select({ notificationId: reminders.notificationId })
+      .from(reminders)
+      .where(eq(reminders.id, op.entityId))
+      .limit(1);
+    previousReminderNotificationId = existing[0]?.notificationId ?? null;
+  }
+
+  if (op.operation === "delete") {
+    await applyDelete(op.table, op.entityId, database);
+  } else {
+    await applyUpsert(op.table, op.entityId, op.payload, database);
+  }
+
+  if (op.table === "reminders") {
+    await applyReminderSideEffects(op.entityId, previousReminderNotificationId, database);
+  }
+  if (op.table === "attachments" && op.operation === "upsert") {
+    await applyAttachmentSideEffects(op.entityId, database);
+  }
+}
+
 export async function pullChanges(database: Database = defaultDb): Promise<PullSummary> {
   let cursor = await getSyncCursor(database);
   let applied = 0;
@@ -116,35 +145,30 @@ export async function pullChanges(database: Database = defaultDb): Promise<PullS
     const response = await authenticatedFetch(`/sync/pull?since=${cursor}`);
     const body: { operations: PulledOperation[]; cursor: number } = await response.json();
 
-    for (const op of body.operations) {
-      // Must be read BEFORE applying the operation — applyUpsert overwrites
-      // the row (including notificationId) with the incoming payload, and
-      // applyDelete removes it outright, so this is the only chance to know
-      // what OS notification (if any) needs cancelling.
-      let previousReminderNotificationId: string | null = null;
-      if (op.table === "reminders") {
-        const existing = await database
-          .select({ notificationId: reminders.notificationId })
-          .from(reminders)
-          .where(eq(reminders.id, op.entityId))
-          .limit(1);
-        previousReminderNotificationId = existing[0]?.notificationId ?? null;
+    // Operations SHOULD arrive in an order that respects foreign-key
+    // dependencies (parent before child) — task.ts's own repository hooks
+    // guarantee this for anything pushed going forward. But data pushed by
+    // an older, buggy build can already sit on the server out of order
+    // (e.g. a reminder with a lower serverSeq than its own task), and every
+    // future pull of that historical page would otherwise fail forever.
+    // Retry whatever fails in a fixed-point loop — each pass either makes
+    // progress (something that depended on an operation applied earlier in
+    // THIS pass now succeeds) or it doesn't, in which case the remaining
+    // failures are genuinely unresolvable within this page (not just
+    // out of order) and are skipped rather than retried forever.
+    let pending = body.operations;
+    while (pending.length > 0) {
+      const stillFailing: PulledOperation[] = [];
+      for (const op of pending) {
+        try {
+          await applyOperation(op, database);
+          applied += 1;
+        } catch {
+          stillFailing.push(op);
+        }
       }
-
-      if (op.operation === "delete") {
-        await applyDelete(op.table, op.entityId, database);
-      } else {
-        await applyUpsert(op.table, op.entityId, op.payload, database);
-      }
-
-      if (op.table === "reminders") {
-        await applyReminderSideEffects(op.entityId, previousReminderNotificationId, database);
-      }
-      if (op.table === "attachments" && op.operation === "upsert") {
-        await applyAttachmentSideEffects(op.entityId, database);
-      }
-
-      applied += 1;
+      if (stillFailing.length === pending.length) break; // no progress this pass
+      pending = stillFailing;
     }
 
     cursor = body.cursor;

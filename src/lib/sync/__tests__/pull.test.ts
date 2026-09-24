@@ -488,4 +488,152 @@ describe("pullChanges", () => {
     expect(attachmentRows).toHaveLength(1);
     expect(await getSyncCursor(db)).toBe(7);
   });
+
+  it("applies a page even when a reminder arrives before its own task (out-of-order within the same page)", async () => {
+    // Reproduces a real bug: historical data pushed by an older, buggy
+    // build already sits on the server with a reminder's serverSeq lower
+    // than its own task's (fixed at the source in task.ts, but this exact
+    // already-pushed data keeps arriving in that order on every future
+    // pull — pullChanges itself must tolerate it, not just prevent new
+    // occurrences).
+    const db = freshTestDb();
+    await db
+      .insert(semesters)
+      .values({ id: "sem-7", label: "s", status: "active", createdAt: new Date() });
+    await db.insert(subjects).values({
+      id: "subj-5",
+      name: "Historia",
+      courseCode: null,
+      professorName: null,
+      color: "indigo",
+      semesterId: "sem-7",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const futureFireAt = new Date(Date.now() + 3600000).toISOString();
+    (authenticatedFetch as jest.Mock).mockResolvedValueOnce(
+      jsonResponse({
+        operations: [
+          {
+            table: "reminders",
+            entityId: "rem-3",
+            operation: "upsert",
+            payload: {
+              id: "rem-3",
+              taskId: "task-5",
+              kind: "fixed",
+              offsetValue: null,
+              offsetUnit: null,
+              fixedDateTime: futureFireAt,
+              computedFireAt: futureFireAt,
+              notificationId: null,
+              createdAt: futureFireAt,
+              updatedAt: futureFireAt,
+            },
+            clientUpdatedAt: 1,
+          },
+          {
+            table: "tasks",
+            entityId: "task-5",
+            operation: "upsert",
+            payload: {
+              id: "task-5",
+              title: "Tarea",
+              description: null,
+              subjectId: "subj-5",
+              dueDateTime: futureFireAt,
+              priority: "Media",
+              completed: false,
+              completedAt: null,
+              completedLate: false,
+              createdAt: futureFireAt,
+              updatedAt: futureFireAt,
+            },
+            clientUpdatedAt: 2,
+          },
+        ],
+        cursor: 1,
+      }),
+    );
+    (authenticatedFetch as jest.Mock).mockResolvedValueOnce(
+      jsonResponse({ operations: [], cursor: 1 }),
+    );
+
+    const result = await pullChanges(db);
+
+    expect(result).toEqual({ applied: 2 });
+    const taskRows = await db.select().from(tasks).where(eq(tasks.id, "task-5"));
+    expect(taskRows).toHaveLength(1);
+    const reminderRows = await db.select().from(reminders).where(eq(reminders.id, "rem-3"));
+    expect(reminderRows).toHaveLength(1);
+    expect(await getSyncCursor(db)).toBe(1);
+  });
+
+  it("skips (without throwing) an operation that still fails after every other operation in the page has been applied", async () => {
+    // A reminder whose task is genuinely never included in this page at
+    // all (not just out of order) — e.g. the task was deleted server-side
+    // and only the reminder's own tombstone-less stale row remains. Must
+    // not loop forever or abort the rest of the sync.
+    const db = freshTestDb();
+    await db
+      .insert(semesters)
+      .values({ id: "sem-8", label: "s", status: "active", createdAt: new Date() });
+
+    (authenticatedFetch as jest.Mock).mockResolvedValueOnce(
+      jsonResponse({
+        operations: [
+          {
+            table: "reminders",
+            entityId: "rem-orphaned",
+            operation: "upsert",
+            payload: {
+              id: "rem-orphaned",
+              taskId: "task-never-arrives",
+              kind: "fixed",
+              offsetValue: null,
+              offsetUnit: null,
+              fixedDateTime: "2026-01-01T00:00:00.000Z",
+              computedFireAt: "2026-01-01T00:00:00.000Z",
+              notificationId: null,
+              createdAt: "2026-01-01T00:00:00.000Z",
+              updatedAt: "2026-01-01T00:00:00.000Z",
+            },
+            clientUpdatedAt: 1,
+          },
+          {
+            table: "semesters",
+            entityId: "sem-9",
+            operation: "upsert",
+            payload: {
+              id: "sem-9",
+              label: "Después",
+              status: "active",
+              createdAt: "2026-01-01T00:00:00.000Z",
+              closedAt: null,
+              updatedAt: "2026-01-01T00:00:00.000Z",
+            },
+            clientUpdatedAt: 2,
+          },
+        ],
+        cursor: 3,
+      }),
+    );
+    (authenticatedFetch as jest.Mock).mockResolvedValueOnce(
+      jsonResponse({ operations: [], cursor: 3 }),
+    );
+
+    const result = await pullChanges(db);
+
+    // Only the semester actually succeeded — the orphaned reminder is
+    // skipped, not counted, and critically does NOT throw or block the
+    // cursor from advancing (which would otherwise retry — and fail — this
+    // exact same page forever).
+    expect(result).toEqual({ applied: 1 });
+    const semesterRows = await db.select().from(semesters).where(eq(semesters.id, "sem-9"));
+    expect(semesterRows).toHaveLength(1);
+    const reminderRows = await db.select().from(reminders).where(eq(reminders.id, "rem-orphaned"));
+    expect(reminderRows).toHaveLength(0);
+    expect(await getSyncCursor(db)).toBe(3);
+  });
 });
