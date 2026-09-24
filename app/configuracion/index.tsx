@@ -24,6 +24,13 @@ import { register, login, logout, isLoggedIn } from "@/lib/sync/client";
 import { runSync, enqueueEverythingForInitialPush, SyncNotConfiguredError } from "@/lib/sync";
 import { colors } from "@/theme";
 
+// A release build swallows uncaught errors silently — surfacing the real
+// message here (instead of a static string) is the only way to diagnose a
+// sync failure on-device without attaching Metro/logcat.
+function describeError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export default function ConfiguracionScreen() {
   const [nickname, setNickname] = useState("");
   const [fullName, setFullName] = useState("");
@@ -82,8 +89,8 @@ export default function ConfiguracionScreen() {
       setSyncPassword("");
       setSyncStatus("Cuenta vinculada. Sincronizando…");
       await handleSyncNow();
-    } catch {
-      Alert.alert("Error", "No se pudo iniciar sesión de sincronización.");
+    } catch (error) {
+      Alert.alert("Error", `No se pudo iniciar sesión de sincronización: ${describeError(error)}`);
     } finally {
       setSyncing(false);
     }
@@ -101,7 +108,9 @@ export default function ConfiguracionScreen() {
         setSyncLoggedIn(false);
         setSyncStatus(null);
       } else {
-        setSyncStatus("No se pudo sincronizar. Se reintentará automáticamente.");
+        setSyncStatus(
+          `No se pudo sincronizar (${describeError(error)}). Se reintentará automáticamente.`,
+        );
       }
     } finally {
       setSyncing(false);
