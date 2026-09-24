@@ -257,6 +257,40 @@ describe("reconcileActiveSemesters", () => {
     expect(newer?.status).toBe("active");
   });
 
+  it("keeps the semester with real subjects active, even when a newer empty one exists (the exact reported bug)", async () => {
+    const db = freshTestDb();
+    await db.insert(semesters).values({
+      id: "sem-real",
+      label: "2026-1 (con datos reales)",
+      status: "active",
+      createdAt: new Date(1000),
+      updatedAt: null,
+    });
+    await db.insert(subjects).values({
+      id: "subj-real",
+      name: "Cálculo II",
+      color: "indigo",
+      semesterId: "sem-real",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    // Created much later — simulating a fresh device's onboarding — and
+    // therefore "more recent" by every timestamp, yet has zero subjects.
+    await db.insert(semesters).values({
+      id: "sem-empty-onboarding",
+      label: "2026-1 (recién onboardeado)",
+      status: "active",
+      createdAt: new Date(999_999),
+      updatedAt: null,
+    });
+
+    const result = await reconcileActiveSemesters(db);
+
+    expect(result.closedSemesterIds).toEqual(["sem-empty-onboarding"]);
+    const active = await getActiveSemester(db);
+    expect(active?.id).toBe("sem-real");
+  });
+
   it("cancels pending reminders for tasks under the semester it closes", async () => {
     const db = freshTestDb();
     await db.insert(semesters).values({
@@ -279,6 +313,19 @@ describe("reconcileActiveSemesters", () => {
       name: "Cálculo II",
       color: "indigo",
       semesterId: "sem-older",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    // Both semesters need the same subjectCount so the reconciliation falls
+    // back to recency (this test is about the cancel-reminders side effect,
+    // not about which semester content-priority picks) — otherwise
+    // sem-older would now win for having content, and sem-newer (empty)
+    // would be closed with nothing to cancel.
+    await db.insert(subjects).values({
+      id: "subj-2",
+      name: "Física",
+      color: "amber",
+      semesterId: "sem-newer",
       createdAt: new Date(),
       updatedAt: new Date(),
     });

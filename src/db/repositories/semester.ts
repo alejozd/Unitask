@@ -135,7 +135,20 @@ export async function reconcileActiveSemesters(
     .from(semesters)
     .where(eq(semesters.status, "active"));
 
-  const plan = planActiveSemesterReconciliation(activeRows);
+  // subjectCount is what actually distinguishes a real, in-use semester
+  // from an empty onboarding stub — see planActiveSemesterReconciliation's
+  // own doc comment for why this must outrank recency.
+  const activeRowsWithSubjectCount = await Promise.all(
+    activeRows.map(async (row) => {
+      const subjectRows = await database
+        .select({ id: subjects.id })
+        .from(subjects)
+        .where(eq(subjects.semesterId, row.id));
+      return { ...row, subjectCount: subjectRows.length };
+    }),
+  );
+
+  const plan = planActiveSemesterReconciliation(activeRowsWithSubjectCount);
   if (plan.semesterIdsToClose.length === 0) {
     return { closedSemesterIds: [] };
   }

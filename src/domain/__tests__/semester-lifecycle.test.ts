@@ -40,58 +40,170 @@ describe("planActiveSemesterReconciliation", () => {
   // Both devices must independently reach the exact same "which one wins"
   // decision from the same (already-synced, identical) input, or they'd
   // keep flip-flopping the closed one back and forth forever via sync.
+  //
+  // Content (subjectCount) is the PRIMARY signal, not recency: a fresh
+  // device's own onboarding always creates a brand-new, empty semester,
+  // which is trivially "more recent" than a semester someone has been
+  // actually using for weeks — recency alone would silently bury the real
+  // semester behind an empty stub every single time. Recency is only the
+  // tie-break between two semesters that both genuinely have content (or
+  // both don't).
 
   it("does nothing when zero or one semester is active", () => {
     expect(planActiveSemesterReconciliation([]).semesterIdsToClose).toEqual([]);
     expect(
       planActiveSemesterReconciliation([
-        { id: "s-1", status: "active", updatedAt: null, createdAt: new Date(1000) },
+        {
+          id: "s-1",
+          status: "active",
+          updatedAt: null,
+          createdAt: new Date(1000),
+          subjectCount: 0,
+        },
       ]).semesterIdsToClose,
     ).toEqual([]);
   });
 
-  it("keeps the more recently updated semester active and closes the other", () => {
+  it("keeps the semester with real content active, even if it is the OLDER one", () => {
+    // This is the exact reported bug: an empty semester created moments
+    // ago (during a fresh device's onboarding) must never outrank an
+    // established semester with real subjects, no matter how "recent" the
+    // empty one looks by timestamp alone.
     const plan = planActiveSemesterReconciliation([
-      { id: "older", status: "active", updatedAt: new Date(1000), createdAt: new Date(1000) },
-      { id: "newer", status: "active", updatedAt: new Date(2000), createdAt: new Date(2000) },
+      {
+        id: "real",
+        status: "active",
+        updatedAt: new Date(1000),
+        createdAt: new Date(1000),
+        subjectCount: 3,
+      },
+      {
+        id: "empty-onboarding-stub",
+        status: "active",
+        updatedAt: new Date(9_999_999),
+        createdAt: new Date(9_999_999),
+        subjectCount: 0,
+      },
+    ]);
+    expect(plan.semesterIdsToClose).toEqual(["empty-onboarding-stub"]);
+  });
+
+  it("falls back to recency when both semesters have real content", () => {
+    const plan = planActiveSemesterReconciliation([
+      {
+        id: "older",
+        status: "active",
+        updatedAt: new Date(1000),
+        createdAt: new Date(1000),
+        subjectCount: 2,
+      },
+      {
+        id: "newer",
+        status: "active",
+        updatedAt: new Date(2000),
+        createdAt: new Date(2000),
+        subjectCount: 5,
+      },
+    ]);
+    expect(plan.semesterIdsToClose).toEqual(["older"]);
+  });
+
+  it("falls back to recency when both semesters are equally empty", () => {
+    const plan = planActiveSemesterReconciliation([
+      {
+        id: "older",
+        status: "active",
+        updatedAt: new Date(1000),
+        createdAt: new Date(1000),
+        subjectCount: 0,
+      },
+      {
+        id: "newer",
+        status: "active",
+        updatedAt: new Date(2000),
+        createdAt: new Date(2000),
+        subjectCount: 0,
+      },
     ]);
     expect(plan.semesterIdsToClose).toEqual(["older"]);
   });
 
   it("falls back to createdAt when updatedAt is null (never edited since creation)", () => {
     const plan = planActiveSemesterReconciliation([
-      { id: "older", status: "active", updatedAt: null, createdAt: new Date(1000) },
-      { id: "newer", status: "active", updatedAt: null, createdAt: new Date(2000) },
+      {
+        id: "older",
+        status: "active",
+        updatedAt: null,
+        createdAt: new Date(1000),
+        subjectCount: 1,
+      },
+      {
+        id: "newer",
+        status: "active",
+        updatedAt: null,
+        createdAt: new Date(2000),
+        subjectCount: 1,
+      },
     ]);
     expect(plan.semesterIdsToClose).toEqual(["older"]);
   });
 
   it("closes every loser when more than two semesters are somehow active at once", () => {
     const plan = planActiveSemesterReconciliation([
-      { id: "a", status: "active", updatedAt: new Date(1000), createdAt: new Date(1000) },
-      { id: "b", status: "active", updatedAt: new Date(3000), createdAt: new Date(3000) },
-      { id: "c", status: "active", updatedAt: new Date(2000), createdAt: new Date(2000) },
+      {
+        id: "a",
+        status: "active",
+        updatedAt: new Date(1000),
+        createdAt: new Date(1000),
+        subjectCount: 1,
+      },
+      {
+        id: "b",
+        status: "active",
+        updatedAt: new Date(3000),
+        createdAt: new Date(3000),
+        subjectCount: 1,
+      },
+      {
+        id: "c",
+        status: "active",
+        updatedAt: new Date(2000),
+        createdAt: new Date(2000),
+        subjectCount: 1,
+      },
     ]);
     expect(plan.semesterIdsToClose.sort()).toEqual(["a", "c"]);
   });
 
   it("ignores already-closed semesters entirely", () => {
     const plan = planActiveSemesterReconciliation([
-      { id: "s-1", status: "closed", updatedAt: new Date(1000), createdAt: new Date(1000) },
-      { id: "s-2", status: "active", updatedAt: new Date(2000), createdAt: new Date(2000) },
+      {
+        id: "s-1",
+        status: "closed",
+        updatedAt: new Date(1000),
+        createdAt: new Date(1000),
+        subjectCount: 1,
+      },
+      {
+        id: "s-2",
+        status: "active",
+        updatedAt: new Date(2000),
+        createdAt: new Date(2000),
+        subjectCount: 1,
+      },
     ]);
     expect(plan.semesterIdsToClose).toEqual([]);
   });
 
-  it("breaks an exact timestamp tie deterministically by id, so every device agrees on the same winner", () => {
+  it("breaks an exact tie (same content bucket, same timestamp) deterministically by id", () => {
     const sameTime = new Date(1000);
     const planForward = planActiveSemesterReconciliation([
-      { id: "aaa", status: "active", updatedAt: sameTime, createdAt: sameTime },
-      { id: "zzz", status: "active", updatedAt: sameTime, createdAt: sameTime },
+      { id: "aaa", status: "active", updatedAt: sameTime, createdAt: sameTime, subjectCount: 1 },
+      { id: "zzz", status: "active", updatedAt: sameTime, createdAt: sameTime, subjectCount: 1 },
     ]);
     const planReversed = planActiveSemesterReconciliation([
-      { id: "zzz", status: "active", updatedAt: sameTime, createdAt: sameTime },
-      { id: "aaa", status: "active", updatedAt: sameTime, createdAt: sameTime },
+      { id: "zzz", status: "active", updatedAt: sameTime, createdAt: sameTime, subjectCount: 1 },
+      { id: "aaa", status: "active", updatedAt: sameTime, createdAt: sameTime, subjectCount: 1 },
     ]);
     // Input order must not affect the outcome — both devices may see this
     // same set in a different local order, but must close the same loser.

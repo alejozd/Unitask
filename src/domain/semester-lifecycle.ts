@@ -32,6 +32,8 @@ export interface ActiveSemesterForReconciliation {
   status: SemesterStatus;
   updatedAt: Date | null;
   createdAt: Date;
+  /** How many subjects exist under this semester — see this function's own doc comment. */
+  subjectCount: number;
 }
 
 export interface ReconcileActiveSemestersPlan {
@@ -40,8 +42,6 @@ export interface ReconcileActiveSemestersPlan {
    * restoring 03-business-rules.md §10's invariant after a sync pull may
    * have introduced a second "active" row (each of two devices can create
    * its own active semester independently before ever linking accounts).
-   * The most recently updated (or, absent an edit, most recently created)
-   * semester is kept active; every other active semester is closed.
    */
   semesterIdsToClose: string[];
 }
@@ -50,8 +50,17 @@ export interface ReconcileActiveSemestersPlan {
  * Deterministic by design: every device reconciling the exact same
  * (already-synced) set of active semesters must reach the exact same
  * winner, or devices would keep flip-flopping which one is "active" back
- * and forth via sync forever. Ties on timestamp break by `id` (a UUID,
- * identical across devices once synced) rather than input array order.
+ * and forth via sync forever.
+ *
+ * Content (`subjectCount`) is the PRIMARY signal, not recency: a fresh
+ * device's own onboarding always creates a brand-new, empty semester,
+ * which is trivially "more recent" than one someone has been actually
+ * using for weeks — recency alone would silently bury real data behind an
+ * empty stub every time this exact scenario occurs. Recency (falling back
+ * to `createdAt` when never edited) is only the tie-break between two
+ * semesters that are equally content-bearing (or equally empty); an exact
+ * timestamp tie beyond that breaks by `id` (a UUID, identical across
+ * devices once synced) rather than input array order.
  */
 export function planActiveSemesterReconciliation(
   semesters: ActiveSemesterForReconciliation[],
@@ -62,9 +71,14 @@ export function planActiveSemesterReconciliation(
   }
 
   const sorted = [...active].sort((a, b) => {
+    const aHasContent = a.subjectCount > 0 ? 1 : 0;
+    const bHasContent = b.subjectCount > 0 ? 1 : 0;
+    if (aHasContent !== bHasContent) return bHasContent - aHasContent; // content-bearing wins
+
     const aTime = (a.updatedAt ?? a.createdAt).getTime();
     const bTime = (b.updatedAt ?? b.createdAt).getTime();
     if (aTime !== bTime) return bTime - aTime; // most recent first
+
     return a.id.localeCompare(b.id); // deterministic tie-break
   });
 
