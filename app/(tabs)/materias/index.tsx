@@ -36,7 +36,7 @@ export default function MateriasScreen() {
           since semester context directly affects what's shown here.
         */}
         <Link href="/semestres" asChild>
-          <TouchableOpacity>
+          <TouchableOpacity style={styles.semestresButton} hitSlop={12}>
             <Text style={styles.semestresLink}>Semestres</Text>
           </TouchableOpacity>
         </Link>
@@ -86,6 +86,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   title: { fontSize: 22, fontWeight: "700", color: colors.text },
+  // Same touch-target class of bug already fixed once for the Dashboard's
+  // gear icon (Phase 9) — a small text-only link with no padding/hitSlop
+  // is hard to tap reliably on a real device.
+  semestresButton: { paddingVertical: 8, paddingHorizontal: 4 },
   semestresLink: { color: colors.primary, fontSize: 14, fontWeight: "600" },
   empty: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
   emptyText: { color: colors.textMuted, textAlign: "center" },
