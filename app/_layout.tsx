@@ -41,14 +41,15 @@ export default function RootLayout() {
 
   const migrationsReady = success && updatedAt !== undefined;
   const hasActiveSemester = migrationsReady && (activeSemesters?.length ?? 0) > 0;
-  // Phase 10.5: onboarding is now two screens. Checked individually (not a
-  // single `pathname.startsWith("/onboarding")`) so the effect below can
-  // route from the first screen to the second as its own state-driven
-  // transition, the same race-free way it already routes into onboarding
-  // and out to /(tabs) — see that effect's comment for why this matters.
+  // Onboarding is now three screens. Checked individually (not a single
+  // `pathname.startsWith("/onboarding")`) so the effect below can route from
+  // one screen to the next as its own state-driven transition, the same
+  // race-free way it already routes into onboarding and out to /(tabs) —
+  // see that effect's comment for why this matters.
+  const onVincularCuentaScreen = pathname === "/onboarding/vincular-cuenta";
   const onPrimerSemestreScreen = pathname === "/onboarding/primer-semestre";
   const onProfileStep = pathname === "/onboarding/perfil";
-  const onOnboardingScreen = onPrimerSemestreScreen || onProfileStep;
+  const onOnboardingScreen = onVincularCuentaScreen || onPrimerSemestreScreen || onProfileStep;
 
   // Navigate imperatively, in an effect, instead of rendering a declarative
   // <Redirect> tied to `pathname`/`activeSemesters` changing together. The
@@ -93,14 +94,29 @@ export default function RootLayout() {
   // itself once the user finishes (or skips) it: by that point
   // `hasActiveSemester` is already known true from having reached this
   // screen in the first place, so there's nothing left to race.
+  // Entering onboarding now starts at vincular-cuenta (offering to log into
+  // an existing sync account and pull its data) instead of jumping straight
+  // to primer-semestre (which used to let the user type any label at all,
+  // even on a device meant to just link back to an already-synced account).
+  // A successful login+sync there writes a semester exactly the same way
+  // primer-semestre's own createSemester(...) does, so it's covered by the
+  // same "hasActiveSemester flips true while on an onboarding screen that
+  // still needs one" forward-navigation condition below — no separate case
+  // needed for it.
   useEffect(() => {
     if (!migrationsReady) return;
     if (!hasActiveSemester && !onOnboardingScreen) {
-      router.replace("/onboarding/primer-semestre");
-    } else if (hasActiveSemester && onPrimerSemestreScreen) {
+      router.replace("/onboarding/vincular-cuenta");
+    } else if (hasActiveSemester && (onVincularCuentaScreen || onPrimerSemestreScreen)) {
       router.replace("/onboarding/perfil");
     }
-  }, [migrationsReady, hasActiveSemester, onOnboardingScreen, onPrimerSemestreScreen]);
+  }, [
+    migrationsReady,
+    hasActiveSemester,
+    onOnboardingScreen,
+    onVincularCuentaScreen,
+    onPrimerSemestreScreen,
+  ]);
 
   if (error) {
     return (
